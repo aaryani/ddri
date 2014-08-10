@@ -25,7 +25,8 @@ import au.com.bytecode.opencsv.CSVReader;
  */
 public class Loader {
 
-	private static final String DB_PATH = "/home/dima/Projects/Grants/ddri/db/grants.db";
+	//private static final String DB_PATH = "/home/dima/Projects/Grants/ddri/db/grants.db";
+	private static final String DB_PATH = "/home/dima/libs/neo4j-community-2.1.3/data/graph.db";
 	private static final String GRANTS_CSV_PATH = "/home/dima/Projects/Grants/ddri/data/nhmrc/2014/grants-data.csv";
 	private static final String ROLES_CSV_PATH = "/home/dima/Projects/Grants/ddri/data/nhmrc/2014/ci-roles.csv";
 	

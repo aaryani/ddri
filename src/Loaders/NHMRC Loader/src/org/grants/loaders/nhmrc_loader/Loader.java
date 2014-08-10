@@ -12,6 +12,8 @@ import java.util.Map.Entry;
 
 import javax.ws.rs.core.MediaType;
 
+import org.neo4j.shell.util.json.JSONObject;
+
 import au.com.bytecode.opencsv.CSVReader;
 
 import com.sun.jersey.api.client.Client;
@@ -20,7 +22,6 @@ import com.sun.jersey.api.client.WebResource;
 import com.sun.xml.internal.bind.v2.runtime.unmarshaller.XsiNilLoader.Array;
 
 public class Loader {
-	// remove it for production version
 	//private static final String SERVER_ROOT_URI = "http://54.83.73.225:7474/db/data/";
 	private static final String SERVER_ROOT_URI = "http://localhost:7474/db/data/";
 		
@@ -121,9 +122,9 @@ public class Loader {
 				.post( ClientResponse.class );
 	
 		int status = response.getStatus();
-		String entitity = response.getEntity( String.class );
+	/*	String entitity = response.getEntity( String.class );
 		
-		/*System.out.println( String.format(
+		System.out.println( String.format(
 		        "POST [%s] to [%s], status code [%d], returned data: "
 		                + System.getProperty( "line.separator" ) + "%s",
                 json, uri, status, entitity) );*/
@@ -246,12 +247,64 @@ public class Loader {
 		int status = response.getStatus();
 		
 		/*System.out.println( String.format(
-		        "POST [%s] to [%s], status code [%d]",
+		        "GET from [%s], status code [%d]",
 		        json, uri, status ) );*/
 		response.close();
 		
 		return status == 200;
 	}
+	
+	private static URI findNode(final String serverUri, final String nodeLabel, 
+			final String key, final Object value) throws Exception
+	{
+		final String uri = serverUri + "index/node/" + nodeLabel + "/" + key + "/" + generateUrl(value);
+		
+		WebResource resource = Client.create()
+		        .resource( uri );
+		// POST {} to the node entry point URI
+		ClientResponse response = resource.accept( MediaType.APPLICATION_JSON )
+		        .type( MediaType.APPLICATION_JSON )
+		        .get( ClientResponse.class );
+
+		int status = response.getStatus();
+		String entitity = response.getEntity( String.class );
+		response.close();
+		
+	/*	System.out.println( String.format(
+				"GET from [%s], status code [%d], returned data: " + System.getProperty( "line.separator" ) + "%s",
+                uri, status, entitity) );*/
+		
+		if (status != 200)
+			return null;
+		return new URI( new JSONObject( new JSONObject(entitity).get("self").toString() ).toString() );
+	}
+	
+	private static URI addRelationship( URI startNode, URI endNode,
+	        String relationshipType, String ... jsonAttributes )
+	{
+		final String uri = startNode.toString() + "/relationships";
+	    String json = generateJsonRelationship( endNode,
+	            relationshipType, jsonAttributes );
+
+	    WebResource resource = Client.create()
+	            .resource( uri );
+	    // POST JSON to the relationships URI
+	    ClientResponse response = resource.accept( MediaType.APPLICATION_JSON )
+	            .type( MediaType.APPLICATION_JSON )
+	            .entity( json )
+	            .post( ClientResponse.class );
+	    
+	    int status = response.getStatus();
+	    final URI location = response.getLocation();
+	/*    System.out.println( String.format(
+	            "POST [%s] to [%s], status code [%d], location header [%s]",
+	            json, uri, response.getStatus(), location.toString() ) );*/
+
+	    response.close();
+	    
+	    return location;
+	}
+
 	
 	private static String generateJsonIndex( String ... keys ) 
 	{			
@@ -269,6 +322,35 @@ public class Loader {
 			
 		return sb.toString();
 	}
+	
+	private static String generateJsonRelationship( URI endNode,
+			 String relationshipType, String... jsonAttributes )
+	{
+		StringBuilder sb = new StringBuilder();
+		sb.append( "{ \"to\" : \"" );
+		sb.append( endNode.toString() );
+		sb.append( "\", " );
+		sb.append( "\"type\" : \"" );
+		sb.append( relationshipType );
+		if ( jsonAttributes == null || jsonAttributes.length < 1 )
+			sb.append( "\"" );
+	 	else
+		{
+	 		sb.append( "\", \"data\" : " );
+	 		for ( int i = 0; i < jsonAttributes.length; i++ )
+			{
+	 			sb.append( jsonAttributes[i] );
+				if ( i < jsonAttributes.length - 1 )
+				{ // Miss off the final comma
+					sb.append( ", " );
+				}
+			}
+		}
+		sb.append( " }" );
+		return sb.toString();
+	}
+
+	
 	
 	private static String generateJson( Object o ) throws Exception
 	{
@@ -414,7 +496,8 @@ public class Loader {
 		
 		// process grats data file
 		CSVReader reader;
-		try {
+		try 
+		{
 			reader = new CSVReader(new FileReader(GRANTS_CSV_PATH));
 			String[] grant;
 			boolean header = false;
@@ -514,8 +597,8 @@ public class Loader {
 				
 				++grantsCounter;
 				
-				if (grantsCounter > 100)
-					break;
+			/*	if (grantsCounter > 100)
+					break;*/
 			}
 	
 			reader.close();
@@ -537,6 +620,90 @@ public class Loader {
 		
 		System.out.println(String.format("Done. Imporded %d grants over %d ms. Average %f ms per grant", 
 				grantsCounter, endTime - beginTime, (float)(endTime - beginTime) / (float)grantsCounter));
+	
+		long granteesCounter = 0;
+		beginTime = System.currentTimeMillis();
+	
+		try 
+		{
+			reader = new CSVReader(new FileReader(ROLES_CSV_PATH));
+			String[] grantee;
+			boolean header = false;
+			while ((grantee = reader.readNext()) != null) 
+			{
+				if (!header)
+				{
+					header = true;
+					continue;
+				}
+				if (grantee.length != 12)
+					continue;
+				
+				int grantId = Integer.parseInt(grantee[0]);
+				String role = grantee[1];
+				String dwIndividualId = grantee[2];
+				String sourceIndividualId = grantee[3];
+				String title = grantee[4];
+				String firstName = grantee[5];
+				String middleName = grantee[6];
+				String lastName = grantee[7];
+				String fullName = grantee[8];
+				String roleStartDate = grantee[9];
+				String roleEndDate = grantee[10];
+				String sourceSystem = grantee[11];
+				
+				Map<String, Object> map = new HashMap<String, Object>();
+				map.put(FIELD_GRANT_ID, grantId);
+				map.put(FIELD_ROLE, role);
+				map.put(FIELD_DW_INDIVIDUAL_ID, dwIndividualId);
+				map.put(FIELD_SOURCE_INDIVIDUAL_ID, dwIndividualId);
+				map.put(FIELD_TITLE, title);
+				map.put(FIELD_FIRST_NAME, firstName);
+				map.put(FIELD_MIDDLE_NAME, middleName);
+				map.put(FIELD_LAST_NAME, lastName);
+				map.put(FIELD_FULL_NAME, fullName);
+				map.put(FIELD_ROLE_START_DATE, roleStartDate);
+				map.put(FIELD_ROLE_END_DATE, roleEndDate);
+				map.put(FIELD_SOURCE_SYSTEM, sourceSystem);
+				
+				URI granteeNode = createNode(serverUri);
+				addNodeLabels(granteeNode, LABEL_GRANTEE);		
+						
+				addNodeProperties(granteeNode, map);
+				
+				URI grantNode = findNode(serverUri, LABEL_GRANT, FIELD_GRANT_ID, grantId);
+				
+				if (grantNode != null)
+				{
+					addRelationship( granteeNode, grantNode, "ROLE");
+				}
+				
+				++granteesCounter;
+				
+				/*if (granteesCounter > 100)
+					break;*/
+			}
+	
+			reader.close();
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+			
+			return;
+		} catch (IOException e) {
+			e.printStackTrace();
+
+			return;
+		} catch (Exception e) {
+			e.printStackTrace();
+			
+			return;
+		}
+		
+		endTime = System.currentTimeMillis();
+		
+		System.out.println(String.format("Done. Imporded %d grantees and create relationships over %d ms. Average %f ms per grantee", 
+				granteesCounter, endTime - beginTime, (float)(endTime - beginTime) / (float)granteesCounter));
+
 	}
 
 }
