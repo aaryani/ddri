@@ -13,18 +13,24 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
-
+  <repositories>
+    <repository>
+      <id>neo4j-contrib-releases</id>
+      <url>https://raw.github.com/neo4j-contrib/m2/master/releases</url>
+    </repository>
+  </repositories>
+  
   <dependencies>
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
       <version>3.8.1</version>
       <scope>test</scope>
-    </dependency>
+    </dependency>   
     <dependency>
-    	<groupId>org.neo4j</groupId>
-    	<artifactId>neo4j-rest-graphdb</artifactId>
-    	<version>1.9.3-SNAPSHOT</version>
+      <groupId>org.neo4j</groupId>
+      <artifactId>neo4j-rest-graphdb</artifactId>
+      <version>2.0.2-SNAPSHOT</version>
     </dependency>
   </dependencies>
 </project>
