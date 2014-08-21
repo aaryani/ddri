@@ -23,5 +23,6 @@
 		</attributes>
 	</classpathentry>
 	<classpathentry kind="lib" path="/home/dima/Projects/Grants/ddri/jar/opencsv/opencsv-2.3.jar"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/researchdata"/>
 	<classpathentry kind="output" path="target/classes"/>
 </classpath>
