@@ -61,7 +61,7 @@ public class Loader {
 	private static final String FIELD_FULL_NAME = "full_name";
 	private static final String FIELD_ARC_PERSONAL_ID = "arc_personal_id";
 	
-	private static final String[] TITLES = { "Mr ", "Ms ", "Dr ", "Prof ", "A/Prof ", "Adj/Prof ", "Asst Prof " }; 
+	private static final String[] TITLES = { "Mr ", "Ms ", "Dr ", "A/Prof ", "Adj/Prof ", "Asst Prof ", "Prof Dr ", "Prof " }; 
 	
     private static enum RelTypes implements RelationshipType
     {
@@ -106,7 +106,7 @@ public class Loader {
 		CSVReader reader;
 		try 
 		{
-			reader = new CSVReader(new FileReader(COMPLETED_GRANTS_CSV_PATH));
+			reader = new CSVReader(new FileReader(csv));
 			String[] grant;
 			boolean header = false;
 			while ((grant = reader.readNext()) != null) 
@@ -370,8 +370,8 @@ public class Loader {
 		// make sure we have an index on idx:Identifier:identifier
 		engine.query("CREATE CONSTRAINT ON (n:" + LABEL_INSTITUTION + ") ASSERT n." + FIELD_NAME + " IS UNIQUE", Collections.<String, Object> emptyMap());
 				
-		if (!LoadCsv(graphDb, COMPLETED_GRANTS_CSV_PATH))
-			return;
+	/*	if (!LoadCsv(graphDb, COMPLETED_GRANTS_CSV_PATH))
+			return;*/
 		
 		if (!LoadCsv(graphDb, NEW_GRANTS_CSV_PATH))
 			return;
