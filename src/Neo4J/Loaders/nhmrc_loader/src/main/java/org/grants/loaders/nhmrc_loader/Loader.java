@@ -3,13 +3,10 @@ package org.grants.loaders.nhmrc_loader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
-import java.net.URLEncoder;
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -19,7 +16,6 @@ import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.RelationshipType;
-import org.neo4j.graphdb.index.RelationshipIndex;
 import org.neo4j.rest.graphdb.RestAPI;
 import org.neo4j.rest.graphdb.RestAPIFacade;
 import org.neo4j.rest.graphdb.entity.RestNode;
@@ -36,20 +32,27 @@ public class Loader {
 	private static final String GRANTS_CSV_PATH = "nhmrc/2014/grants-data.csv";
 	private static final String ROLES_CSV_PATH = "nhmrc/2014/ci-roles.csv";
 //	private static final int MAX_REQUEST_PER_TRANSACTION = 1000;
-	
-	private static final String LABEL_NHMRC_GRANT = "NHMRC_Grant";
-	private static final String LABEL_NHMRC_RESEARCHER = "NHMRC_Researcher";
-	private static final String LABEL_IDENTIFIER = "Identifier";
-	private static final String LABEL_INSTITUTION = "Institution";
-	
-	private static final String RELATIONSHIP_IDENTIFIES = "IDENTIFIES";
-	
-	private static final String FIELD_IDENTIFIER = "identifier";
-	private static final String FIELD_TYPE = "type";
 
+	private static final String LABEL_GRANT = "Grant";
+	private static final String LABEL_RESEARCHER = "Researcher";
+	private static final String LABEL_INSTITUTION = "Institution";
+
+	private static final String LABEL_NHMRC = "NHMRC";
+	private static final String LABEL_NHMRC_GRANT = LABEL_NHMRC + "_" + LABEL_GRANT;
+	private static final String LABEL_NHMRC_RESEARCHER = LABEL_NHMRC + "_" + LABEL_RESEARCHER;
+	
+	private static final String LABEL_NLA = "NLA";
+	private static final String LABEL_NLA_INSTITUTION = LABEL_NLA + "_" + LABEL_INSTITUTION;
+
+	private static final String LABEL_AU = "AU";
+	private static final String LABEL_AU_INSTITUTION = LABEL_AU + "_" + LABEL_INSTITUTION;
+
+	private static final String FIELD_NLA = "nla";
 	private static final String FIELD_NAME = "name";
 	private static final String FIELD_STATE = "state";
-	
+	private static final String FIELD_TYPE = "type";
+	private static final String FIELD_SOURCE = "source";
+
 	private static final String FIELD_NHMRC_GRANT_ID = "nhmrc_grant_id";
 	private static final String FIELD_APPLICATION_YEAR = "application_year";
 	private static final String FIELD_SUB_TYPE = "sub_type";
@@ -81,18 +84,27 @@ public class Loader {
 	
     private static enum RelTypes implements RelationshipType
     {
-        IDENTIFIES, ADMIN_INSTITUTE, INVESTIGATOR
+        Identofies, AdminInstitute, Investigator, KnowAs
     }
 
     private static enum Labels implements Label {
-    	Identifier, Institution, NHMRC_Grant, NHMRC_Researcher
+    	NHMRC, NLA, AU, Institution, Grant, Researcher
     };
 
-    
+	private Map<String, RestNode> mapAUInstitution = new HashMap<String, RestNode>();
+	private Map<Integer, RestNode> mapNHMRCGrant = new HashMap<Integer, RestNode>();
+	private Map<String, RestNode> mapNHMRCReseracher = new HashMap<String, RestNode>();
+	
+	private MetadataAPI metadata;
+	
+	private RestIndex<Node> indexNHMRCGrant;
+	private RestIndex<Node> indexNHMRCResearcher;
+	private RestIndex<Node> indexNLAInstitution;
+	private RestIndex<Node> indexAUInstitution;
+	
 	public void Load(final String serverRoot)
 	{
 		System.setProperty(Config.CONFIG_STREAM, "true");
-		
 		
 		// connect to graph database
 		RestAPI graphDb = new RestAPIFacade(serverRoot);  
@@ -108,27 +120,28 @@ public class Loader {
 		// make sure we have an index on Grantee:grant_id
 		engine.query("CREATE CONSTRAINT ON (n:" + LABEL_NHMRC_RESEARCHER + ") ASSERT n."+ FIELD_DW_INDIVIDUAL_ID + " IS UNIQUE", Collections.<String, Object> emptyMap());
 
-		// make sure we have an index on idx:Idet
-		engine.query("CREATE CONSTRAINT ON (n:" + LABEL_IDENTIFIER + ") ASSERT n." + FIELD_IDENTIFIER + " IS UNIQUE", Collections.<String, Object> emptyMap());
+		// make sure we have an index on NLA_Institution:nla
+		engine.query("CREATE CONSTRAINT ON (n:" + LABEL_NLA_INSTITUTION + ") ASSERT n." + FIELD_NLA + " IS UNIQUE", Collections.<String, Object> emptyMap());
 
-		// make sure we have an index on idx:Identifier:identifier
-		engine.query("CREATE CONSTRAINT ON (n:" + LABEL_INSTITUTION + ") ASSERT n." + FIELD_NAME + " IS UNIQUE", Collections.<String, Object> emptyMap());
+		// make sure we have an index on AU_Institution:nla
+		engine.query("CREATE CONSTRAINT ON (n:" + LABEL_AU_INSTITUTION + ") ASSERT n." + FIELD_NAME + " IS UNIQUE", Collections.<String, Object> emptyMap());
 					
 		// Obtain an index on Grant
-		RestIndex<Node> indexGrant = graphDb.index().forNodes(LABEL_NHMRC_GRANT);
+		indexNHMRCGrant = graphDb.index().forNodes(LABEL_NHMRC_GRANT);
 		
 		// Obtain an index on Researcher
-		RestIndex<Node> indexGrantee = graphDb.index().forNodes(LABEL_NHMRC_RESEARCHER);
-
-		// Obtain an index on Identifier
-		RestIndex<Node> indexIdentifier = graphDb.index().forNodes(LABEL_IDENTIFIER);
+		indexNHMRCResearcher = graphDb.index().forNodes(LABEL_NHMRC_RESEARCHER);
 
 		// Obtain an index on Institution
-		RestIndex<Node> indexInstitution = graphDb.index().forNodes(LABEL_INSTITUTION);
+		indexNLAInstitution = graphDb.index().forNodes(LABEL_NLA_INSTITUTION);
+
+		// Obtain an index on Institution
+		indexAUInstitution = graphDb.index().forNodes(LABEL_AU_INSTITUTION);
 		
 		// Obtain an index on Identifies relationship
 		//RelationshipIndex indexIdentified = graphDb.index().forRelationships(RELATIONSHIP_IDENTIFIES);
-
+		
+		metadata = new MetadataAPI();
 		
 		// Imoprt Grant data
 		System.out.println("Importing Grant data");
@@ -136,13 +149,7 @@ public class Loader {
 	//	long transactionCount = 0;
 		long beginTime = System.currentTimeMillis();
 		
-		Map<String, RestNode> mapIdentifiers = new HashMap<String, RestNode>();
-		Map<String, RestNode> mapInstitution = new HashMap<String, RestNode>();
-		Map<Integer, RestNode> mapGrants = new HashMap<Integer, RestNode>();
-		Map<String, RestNode> mapReserachers = new HashMap<String, RestNode>();
 		
-		
-		MetadataAPI metadata = new MetadataAPI();
 		
 		// process grats data file
 		CSVReader reader;
@@ -174,87 +181,9 @@ public class Loader {
 				int grantId = Integer.parseInt(grant[0]);
 				System.out.println("Grant id: " + grantId);			
 				
-				if (!mapGrants.containsKey(grantId)) {					
-					String adminInstitute = grant[6];
-				//	System.out.println("Administration institute: " + adminInstitute);
-					
-					RestNode nodeInstitution = mapInstitution.get(adminInstitute);
-					if (null == nodeInstitution) {
-				//		System.out.println("Query administration institute NLA");
-					
-						metadata.query = "class:(party) AND display_title:(\"" + adminInstitute +  "\") AND identifier_type:\"AU-ANL:PEAU\"";
-						metadata.fields = "identifier_value,display_title";
-					
-						Set<String> nlas = metadata.QueryField("identifier_value", "display_title", adminInstitute);
-						
-						// let's check what we have identifier ready.
-						List<RestNode> listIdentifiers = null;
-						if (nlas != null) {	
-						//	System.out.println("We have found " + nlas.size() + " NLA");	
-
-							for (String nla : nlas) {
-							//	System.out.println("NLA: " + nla);	
-								RestNode nodeIndex = mapIdentifiers.get(nla);
-								if (null == nodeIndex) {
-									Map<String, Object> map = new HashMap<String, Object>();
-									map.put(FIELD_IDENTIFIER, nla);
-									map.put(FIELD_TYPE, "NLA");
-									
-									nodeIndex = graphDb.getOrCreateNode(
-											indexIdentifier, FIELD_IDENTIFIER, nla, map);
-									if (!nodeIndex.hasLabel(Labels.Identifier))
-										nodeIndex.addLabel(Labels.Identifier); 
-									mapIdentifiers.put(nla, nodeIndex);	
-								}
-								
-								if (null == listIdentifiers)
-									listIdentifiers = new ArrayList<RestNode>();
-								
-								listIdentifiers.add(nodeIndex);
-							} 
-							
-							if (null != listIdentifiers) {
-							
-								for (RestNode idx : listIdentifiers) {
-									Iterable<Relationship> rels = idx.getRelationships(RelTypes.IDENTIFIES);							
-									for (Relationship rel : rels) {
-										RestNode n = (RestNode) rel.getEndNode();
-										if (null != n) {
-											if (null == nodeInstitution)
-												nodeInstitution = n;
-											else if (nodeInstitution.getId() != n.getId()) {
-												reader.close();
-												throw new Exception("Error, the relationship of index points on different node!");
-											}
-										}
-									}
-								}
-							} 						
-						}
-				//		else
-					//		System.out.println("No NLA has been found for this administration institute");
-							
-					
-						if (null == nodeInstitution) {
-					//		System.out.println("Creating new administration institute");
-						
-							Map<String, Object> map = new HashMap<String, Object>();
-							map.put(FIELD_NAME, adminInstitute);
-							map.put(FIELD_STATE, grant[7]);
-							map.put(FIELD_TYPE, grant[8]);
-							
-							nodeInstitution = graphDb.getOrCreateNode(
-									indexInstitution, FIELD_NAME, adminInstitute, map);
-							if (!nodeInstitution.hasLabel(Labels.Institution))
-								nodeInstitution.addLabel(Labels.Institution); 
-							mapInstitution.put(adminInstitute, nodeInstitution);	
-						}
-						
-						if (null != listIdentifiers) 
-							for (RestNode idx : listIdentifiers) 
-								if (!idx.hasRelationship(RelTypes.IDENTIFIES))
-									idx.createRelationshipTo(nodeInstitution, RelTypes.IDENTIFIES);
-					}
+				if (!mapNHMRCGrant.containsKey(grantId)) {					
+					RestNode nodeInstitution = GetOrCreateAUInstitution(graphDb, 
+							grant[6], grant[7], grant[8]);
 					
 					Map<String, Object> map = new HashMap<String, Object>();
 					map.put(FIELD_NHMRC_GRANT_ID, grantId);
@@ -299,30 +228,20 @@ public class Loader {
 					map.put(FIELD_MEDIA_SUMMARY, grant[54]);
 					map.put(FIELD_SOURCE_SYSTEM, grant[55]);
 							
-					RestNode nodeGrant = graphDb.getOrCreateNode(indexGrant, FIELD_NHMRC_GRANT_ID, grantId, map);
-					if (!nodeGrant.hasLabel(Labels.NHMRC_Grant))
-						nodeGrant.addLabel(Labels.NHMRC_Grant); 
-					if (!nodeGrant.hasRelationship(RelTypes.ADMIN_INSTITUTE))
-						nodeGrant.createRelationshipTo(nodeInstitution, RelTypes.ADMIN_INSTITUTE);
-					mapGrants.put(grantId, nodeGrant);	
+					RestNode nodeGrant = graphDb.getOrCreateNode(indexNHMRCGrant, 
+							FIELD_NHMRC_GRANT_ID, grantId, map);
+					if (!nodeGrant.hasLabel(Labels.Grant))
+						nodeGrant.addLabel(Labels.Grant); 
+					if (!nodeGrant.hasLabel(Labels.NHMRC))
+						nodeGrant.addLabel(Labels.NHMRC); 
+					
+					CreateUniqueRelationship(nodeGrant, nodeInstitution, RelTypes.AdminInstitute, false);
+					
+					mapNHMRCGrant.put(grantId, nodeGrant);	
 
 				}
-				else
-					System.out.println("The Grants map already contains the key: " + grantId);
-				
-				/*
-				
-				
-					
-				// create grant node
-				
-				*/
+
 				++grantsCounter;
-			//	++transactionCount;
-				
-				/*if (grantsCounter >= 1000)
-					break;*/
-				
 			}
 			
 		/*	tx.success();  
@@ -349,9 +268,6 @@ public class Loader {
 				grantsCounter, endTime - beginTime, (float)(endTime - beginTime) / (float)grantsCounter));
 	
 		
-		
-		
-		
 		long granteesCounter = 0;
 		beginTime = System.currentTimeMillis();
 	
@@ -377,13 +293,10 @@ public class Loader {
 				String dwIndividualId = grantee[2];
 				System.out.println("Investigator id: " + dwIndividualId);	
 				
-				RestNode nodeGrantee = mapReserachers.get(dwIndividualId);
+				RestNode nodeGrantee = mapNHMRCReseracher.get(dwIndividualId);
 				if (null == nodeGrantee)
 				{	
-					
 					Map<String, Object> map = new HashMap<String, Object>();
-				//	map.put(FIELD_GRANT_ID, Integer.parseInt(grantee[0]));
-				//	map.put(FIELD_ROLE, grantee[1]);
 					map.put(FIELD_DW_INDIVIDUAL_ID, dwIndividualId);
 					map.put(FIELD_SOURCE_INDIVIDUAL_ID, grantee[3]);
 					map.put(FIELD_TITLE, grantee[4]);
@@ -391,22 +304,23 @@ public class Loader {
 					map.put(FIELD_MIDDLE_NAME, grantee[6]);
 					map.put(FIELD_LAST_NAME, grantee[7]);
 					map.put(FIELD_FULL_NAME, grantee[8]);
-				//	map.put(FIELD_ROLE_START_DATE, grantee[9]);
-				//	map.put(FIELD_ROLE_END_DATE, grantee[10]);
 					map.put(FIELD_SOURCE_SYSTEM, grantee[11]);
 					
-					nodeGrantee = graphDb.getOrCreateNode(indexGrantee, FIELD_DW_INDIVIDUAL_ID, dwIndividualId, map);
-					if (!nodeGrantee.hasLabel(Labels.NHMRC_Researcher))
-						nodeGrantee.addLabel(Labels.NHMRC_Researcher);
-					mapReserachers.put(dwIndividualId, nodeGrantee);	
+					nodeGrantee = graphDb.getOrCreateNode(indexNHMRCResearcher, FIELD_DW_INDIVIDUAL_ID, dwIndividualId, map);
+					if (!nodeGrantee.hasLabel(Labels.Researcher))
+						nodeGrantee.addLabel(Labels.Researcher);
+					if (!nodeGrantee.hasLabel(Labels.NHMRC))
+						nodeGrantee.addLabel(Labels.NHMRC);
+					
+					mapNHMRCReseracher.put(dwIndividualId, nodeGrantee);	
 				}
 									
 				//	graphDb.setLabel(nodeGrantee, LABEL_RESEARCHER);
-				RestNode nodeGrant = mapGrants.get(grantId);
+				RestNode nodeGrant = mapNHMRCGrant.get(grantId);
 				
 				if (nodeGrant != null) 
 				{
-					Iterable<Relationship> rels = nodeGrantee.getRelationships(RelTypes.INVESTIGATOR);
+					Iterable<Relationship> rels = nodeGrantee.getRelationships(RelTypes.Investigator);
 					boolean relationshipExist = false;
 					for (Relationship rel : rels) 
 						if (rel.getEndNode().getId() == nodeGrant.getId()) {
@@ -420,29 +334,11 @@ public class Loader {
 						map.put(FIELD_ROLE_START_DATE, grantee[9]);
 						map.put(FIELD_ROLE_END_DATE, grantee[10]);
 						
-						graphDb.createRelationship(nodeGrantee, nodeGrant, RelTypes.INVESTIGATOR, map);
+						graphDb.createRelationship(nodeGrantee, nodeGrant, RelTypes.Investigator, map);
 					}
-					
-				//	Relationship rel = nodeGrantee.createRelationshipTo(nodeGrant, RelTypes.ROLE);
 				}
-				/*
-				Map<String,Object> params=new HashMap<String, Object>();
-				//params.put("props", par);
-				params.put("props", map);
-					
-				QueryResult<Map<String,Object>> result = engine.query("CREATE (n:Grantee {props} RETURN n)", params);		
-				Iterator<Map<String, Object>> iterator=result.iterator();  
-				if(iterator.hasNext()) {  
-					Map<String,Object> row = iterator.next();  
-					
-//					out.print("Total nodes: " + row.get("total"));  
-				} */
-				
 				
 				++granteesCounter;
-				
-				/*if (granteesCounter > 100)
-					break;*/
 			}
 	
 			reader.close();
@@ -464,18 +360,86 @@ public class Loader {
 		
 		System.out.println(String.format("Done. Imporded %d grantees and create relationships over %d ms. Average %f ms per grantee", 
 				granteesCounter, endTime - beginTime, (float)(endTime - beginTime) / (float)granteesCounter));
-
-		/*
-		beginTime = System.currentTimeMillis();
+	}
+	
+	private void CreateUniqueRelationship(RestNode nodeStart, RestNode nodeEnd, 
+			RelTypes type, boolean checkOpposite) {
+		// get all node relationships. They should be empty for a new node
+		Iterable<Relationship> rels = nodeStart.getRelationships(type);
 		
-		engine.query("MATCH (grantee:Grantee), (grant:Grant) WHERE grantee.grant_id = grant.grant_id CREATE (grantee)-[r:ROLE]->(grant)", Collections.EMPTY_MAP);
+		for (Relationship rel : rels) {
+			long startId = rel.getStartNode().getId();
+			long endId = rel.getEndNode().getId();
 			
-		endTime = System.currentTimeMillis();
+			// check that relationship exists
+			if (startId == nodeStart.getId() && endId == nodeEnd.getId() || 
+			    checkOpposite && startId == nodeEnd.getId() && endId == nodeStart.getId())
+				return;
+		} 
 		
-		System.out.println(String.format("Done. Imporded %d grantees and create relationships over %d ms. Average %f ms per grantee", 
-				granteesCounter, endTime - beginTime, (float)(endTime - beginTime) / (float)granteesCounter));
-
-	*/
+		nodeStart.createRelationshipTo(nodeEnd, type);
+	}	
+	
+	
+	private void FindAndConnectInstitutionNLA(RestAPI graphDb, RestNode nodeInstitution, String name) 
+			throws UnsupportedEncodingException {	
+		metadata.query = "class:(party) AND display_title:(\"" + name +  "\") AND identifier_type:\"AU-ANL:PEAU\"";
+		metadata.fields = "identifier_value,display_title";
+		
+		Set<String> nlas = metadata.QueryField("identifier_value", "display_title", name);
+		if (nlas != null) {	
+			if (nlas.size() > 1) {
+				System.out.println("The RDA has return more that obe NLA for this request: " + name + ", return size: " + nlas.size());
+			}					
+		
+			for (String nla : nlas) {
+				Map<String, Object> map = new HashMap<String, Object>();
+				map.put(FIELD_NLA, nla);
+				map.put(FIELD_NAME, name);
+				map.put(FIELD_SOURCE, "http://researchdata.ands.org.au/");
+								
+				RestNode node = graphDb.getOrCreateNode(
+						indexNLAInstitution, FIELD_NLA, nla, map);
+				if (!node.hasLabel(Labels.Institution))
+					node.addLabel(Labels.Institution); 
+				if (!node.hasLabel(Labels.NLA))
+					node.addLabel(Labels.NLA); 
+				
+				CreateUniqueRelationship(nodeInstitution, node, RelTypes.KnowAs, true);
+			}
+		}
+	}
+	
+	private RestNode GetOrCreateAUInstitution(RestAPI graphDb, String name, String state, String type) {
+		RestNode nodeInstitution = mapAUInstitution.get(name);
+		if (null == nodeInstitution) {
+	//		System.out.println("Query administration institute NLA");
+		
+			Map<String, Object> map = new HashMap<String, Object>();
+			map.put(FIELD_NAME, name);
+			map.put(FIELD_STATE, state);
+			map.put(FIELD_TYPE, type);
+			map.put(FIELD_SOURCE, "NHMRC");
+							
+			nodeInstitution = graphDb.getOrCreateNode(
+					indexAUInstitution, FIELD_NAME, name, map);
+			if (!nodeInstitution.hasLabel(Labels.Institution))
+				nodeInstitution.addLabel(Labels.Institution); 
+			if (!nodeInstitution.hasLabel(Labels.AU))
+				nodeInstitution.addLabel(Labels.AU); 
+					
+			// only check NLA once
+			try {
+				FindAndConnectInstitutionNLA(graphDb, nodeInstitution, name);
+			} catch (UnsupportedEncodingException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} 
+			
+			mapAUInstitution.put(name, nodeInstitution);
+		}		
+		
+		return nodeInstitution;
 	}
 	
 }

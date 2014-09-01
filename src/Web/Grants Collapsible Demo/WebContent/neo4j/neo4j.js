@@ -91,6 +91,9 @@ function parseInstitutionResponse(response) {
 				nodes.push({ 
 					self : data[0].self, 
 					name : name,
+					class : "Institution",
+					size : 100,
+					color : "#0066FF",
 					children : []
 				});
 			}
@@ -115,6 +118,9 @@ function parseInstitutionResponse(response) {
 				nodes[instIndex].children.push({
 					self : data[1].self, 
 					name : name,
+					class : "Grant",
+					size : 100,
+					color : "#FF4D4D",
 					children : []
 				});
 			}
@@ -137,6 +143,10 @@ function parseInstitutionResponse(response) {
 				nodes[instIndex].children[grantIndex].children.push({
 					self : data[2].self, 
 					name : name,
+					class : "Researcher",
+					size : 100,
+					color : "#00CC00"
+					
 				});
 			}
 		}
