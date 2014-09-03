@@ -40,13 +40,15 @@ public class Loader {
 	private static final String LABEL_NHMRC = "NHMRC";
 	private static final String LABEL_NHMRC_GRANT = LABEL_NHMRC + "_" + LABEL_GRANT;
 	private static final String LABEL_NHMRC_RESEARCHER = LABEL_NHMRC + "_" + LABEL_RESEARCHER;
+	private static final String LABEL_NHMRC_INSTITUTION = LABEL_NHMRC + "_" + LABEL_INSTITUTION;
 	
-	private static final String LABEL_NLA = "NLA";
-	private static final String LABEL_NLA_INSTITUTION = LABEL_NLA + "_" + LABEL_INSTITUTION;
+	private static final String LABEL_RDA = "NLA";
+	private static final String LABEL_RDA_INSTITUTION = LABEL_RDA + "_" + LABEL_INSTITUTION;
 
-	private static final String LABEL_AU = "AU";
-	private static final String LABEL_AU_INSTITUTION = LABEL_AU + "_" + LABEL_INSTITUTION;
-
+	private static final String FIELD_NODE_TYPE = "node_type";
+	private static final String FIELD_NODE_SOURCE = "node_source";
+	
+	private static final String FIELD_PURL = "purl";
 	private static final String FIELD_NLA = "nla";
 	private static final String FIELD_NAME = "name";
 	private static final String FIELD_STATE = "state";
@@ -84,23 +86,23 @@ public class Loader {
 	
     private static enum RelTypes implements RelationshipType
     {
-        Identofies, AdminInstitute, Investigator, KnowAs
+        Identofies, AdminInstitute, Investigator, KnownAs
     }
 
     private static enum Labels implements Label {
-    	NHMRC, NLA, AU, Institution, Grant, Researcher
+    	NHMRC, RDA, Institution, Grant, Researcher
     };
 
-	private Map<String, RestNode> mapAUInstitution = new HashMap<String, RestNode>();
 	private Map<Integer, RestNode> mapNHMRCGrant = new HashMap<Integer, RestNode>();
 	private Map<String, RestNode> mapNHMRCReseracher = new HashMap<String, RestNode>();
+	private Map<String, RestNode> mapNHMRCInstitution = new HashMap<String, RestNode>();
 	
 	private MetadataAPI metadata;
 	
 	private RestIndex<Node> indexNHMRCGrant;
 	private RestIndex<Node> indexNHMRCResearcher;
-	private RestIndex<Node> indexNLAInstitution;
-	private RestIndex<Node> indexAUInstitution;
+	private RestIndex<Node> indexNHMRCInstitution;
+	private RestIndex<Node> indexRDAInstitution;
 	
 	public void Load(final String serverRoot)
 	{
@@ -113,18 +115,18 @@ public class Loader {
 			// create a query engine
 		RestCypherQueryEngine engine=new RestCypherQueryEngine(graphDb);  
 		
-		// make sure we have an index on Grant:grant_id
+		// make sure we have an index on NHMRC_Grant:nhmrc_grant_id
 		// RestAPI does not supported indexes created by schema, so we will use Cypher for that
 		engine.query("CREATE CONSTRAINT ON (n:" + LABEL_NHMRC_GRANT + ") ASSERT n." + FIELD_NHMRC_GRANT_ID + " IS UNIQUE", Collections.<String, Object> emptyMap());
 		
-		// make sure we have an index on Grantee:grant_id
+		// make sure we have an index on NHMRC_Researcher:dw_individual_id
 		engine.query("CREATE CONSTRAINT ON (n:" + LABEL_NHMRC_RESEARCHER + ") ASSERT n."+ FIELD_DW_INDIVIDUAL_ID + " IS UNIQUE", Collections.<String, Object> emptyMap());
 
-		// make sure we have an index on NLA_Institution:nla
-		engine.query("CREATE CONSTRAINT ON (n:" + LABEL_NLA_INSTITUTION + ") ASSERT n." + FIELD_NLA + " IS UNIQUE", Collections.<String, Object> emptyMap());
+		// make sure we have an index on NHMRC_Institution:name
+		engine.query("CREATE CONSTRAINT ON (n:" + LABEL_NHMRC_INSTITUTION + ") ASSERT n." + FIELD_NAME + " IS UNIQUE", Collections.<String, Object> emptyMap());
 
-		// make sure we have an index on AU_Institution:nla
-		engine.query("CREATE CONSTRAINT ON (n:" + LABEL_AU_INSTITUTION + ") ASSERT n." + FIELD_NAME + " IS UNIQUE", Collections.<String, Object> emptyMap());
+		// make sure we have an index on RDA_Institution:nla
+		engine.query("CREATE CONSTRAINT ON (n:" + LABEL_RDA_INSTITUTION + ") ASSERT n." + FIELD_NLA + " IS UNIQUE", Collections.<String, Object> emptyMap());
 					
 		// Obtain an index on Grant
 		indexNHMRCGrant = graphDb.index().forNodes(LABEL_NHMRC_GRANT);
@@ -133,10 +135,10 @@ public class Loader {
 		indexNHMRCResearcher = graphDb.index().forNodes(LABEL_NHMRC_RESEARCHER);
 
 		// Obtain an index on Institution
-		indexNLAInstitution = graphDb.index().forNodes(LABEL_NLA_INSTITUTION);
+		indexNHMRCInstitution = graphDb.index().forNodes(LABEL_NHMRC_INSTITUTION);
 
 		// Obtain an index on Institution
-		indexAUInstitution = graphDb.index().forNodes(LABEL_AU_INSTITUTION);
+		indexRDAInstitution = graphDb.index().forNodes(LABEL_RDA_INSTITUTION);
 		
 		// Obtain an index on Identifies relationship
 		//RelationshipIndex indexIdentified = graphDb.index().forRelationships(RELATIONSHIP_IDENTIFIES);
@@ -186,7 +188,12 @@ public class Loader {
 							grant[6], grant[7], grant[8]);
 					
 					Map<String, Object> map = new HashMap<String, Object>();
+					String purl = "http://purl.org/au-research/grants/nhmrc/" + grantId;
+					
 					map.put(FIELD_NHMRC_GRANT_ID, grantId);
+					map.put(FIELD_PURL, purl);
+					map.put(FIELD_NODE_TYPE, Labels.Grant.name());
+					map.put(FIELD_NODE_SOURCE, Labels.NHMRC.name());
 					map.put(FIELD_APPLICATION_YEAR, Integer.parseInt(grant[1]));
 					map.put(FIELD_SUB_TYPE, grant[2]);
 					map.put(FIELD_HIGHER_GRANT_TYPE, grant[3]);					
@@ -298,6 +305,8 @@ public class Loader {
 				{	
 					Map<String, Object> map = new HashMap<String, Object>();
 					map.put(FIELD_DW_INDIVIDUAL_ID, dwIndividualId);
+					map.put(FIELD_NODE_TYPE, Labels.Researcher.name());
+					map.put(FIELD_NODE_SOURCE, Labels.NHMRC.name());
 					map.put(FIELD_SOURCE_INDIVIDUAL_ID, grantee[3]);
 					map.put(FIELD_TITLE, grantee[4]);
 					map.put(FIELD_FIRST_NAME, grantee[5]);
@@ -395,38 +404,42 @@ public class Loader {
 			for (String nla : nlas) {
 				Map<String, Object> map = new HashMap<String, Object>();
 				map.put(FIELD_NLA, nla);
+				map.put(FIELD_NODE_TYPE, Labels.Institution.name());
+				map.put(FIELD_NODE_SOURCE, Labels.RDA.name());
 				map.put(FIELD_NAME, name);
 				map.put(FIELD_SOURCE, "http://researchdata.ands.org.au/");
 								
 				RestNode node = graphDb.getOrCreateNode(
-						indexNLAInstitution, FIELD_NLA, nla, map);
+						indexRDAInstitution, FIELD_NLA, nla, map);
 				if (!node.hasLabel(Labels.Institution))
 					node.addLabel(Labels.Institution); 
-				if (!node.hasLabel(Labels.NLA))
-					node.addLabel(Labels.NLA); 
+				if (!node.hasLabel(Labels.RDA))
+					node.addLabel(Labels.RDA); 
 				
-				CreateUniqueRelationship(nodeInstitution, node, RelTypes.KnowAs, true);
+				CreateUniqueRelationship(nodeInstitution, node, RelTypes.KnownAs, true);
 			}
 		}
 	}
 	
 	private RestNode GetOrCreateAUInstitution(RestAPI graphDb, String name, String state, String type) {
-		RestNode nodeInstitution = mapAUInstitution.get(name);
+		RestNode nodeInstitution = mapNHMRCInstitution.get(name);
 		if (null == nodeInstitution) {
 	//		System.out.println("Query administration institute NLA");
 		
 			Map<String, Object> map = new HashMap<String, Object>();
 			map.put(FIELD_NAME, name);
+			map.put(FIELD_NODE_TYPE, Labels.Institution.name());
+			map.put(FIELD_NODE_SOURCE, Labels.NHMRC.name());
 			map.put(FIELD_STATE, state);
 			map.put(FIELD_TYPE, type);
 			map.put(FIELD_SOURCE, "NHMRC");
 							
 			nodeInstitution = graphDb.getOrCreateNode(
-					indexAUInstitution, FIELD_NAME, name, map);
+					indexNHMRCInstitution, FIELD_NAME, name, map);
 			if (!nodeInstitution.hasLabel(Labels.Institution))
 				nodeInstitution.addLabel(Labels.Institution); 
-			if (!nodeInstitution.hasLabel(Labels.AU))
-				nodeInstitution.addLabel(Labels.AU); 
+			if (!nodeInstitution.hasLabel(Labels.NHMRC))
+				nodeInstitution.addLabel(Labels.NHMRC); 
 					
 			// only check NLA once
 			try {
@@ -436,7 +449,7 @@ public class Loader {
 				e.printStackTrace();
 			} 
 			
-			mapAUInstitution.put(name, nodeInstitution);
+			mapNHMRCInstitution.put(name, nodeInstitution);
 		}		
 		
 		return nodeInstitution;

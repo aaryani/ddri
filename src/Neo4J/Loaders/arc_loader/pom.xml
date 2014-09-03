@@ -6,7 +6,7 @@
   <name>ARC Loader</name>
   <description>Loads ARC data into Neo4J database</description>
   
-    <repositories>
+  <repositories>
     <repository>
       <id>neo4j-contrib-releases</id>
       <url>https://raw.github.com/neo4j-contrib/m2/master/releases</url>
