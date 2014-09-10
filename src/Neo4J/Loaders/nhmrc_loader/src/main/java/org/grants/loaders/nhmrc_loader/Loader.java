@@ -86,7 +86,7 @@ public class Loader {
 	
     private static enum RelTypes implements RelationshipType
     {
-        Identofies, AdminInstitute, Investigator, KnownAs
+        AdminInstitute, Investigator, KnownAs
     }
 
     private static enum Labels implements Label {

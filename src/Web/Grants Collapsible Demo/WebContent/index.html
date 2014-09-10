@@ -4,136 +4,165 @@
 		<link type="text/css" rel="stylesheet" href="style.css"/>
 		<title> Grants Project Demo </title>
 	</head>
-	<style> /* set the CSS */
-		body { font: 16px times;}
-		
-		circle.node {
-  			cursor: pointer;
-  			stroke: #000;
-  			stroke-width: .5px;
-		}
-
-		line.link {
-  			fill: none;
-  			stroke: #9ecae1;
-  			stroke-width: 1.5px;
-		}
-
-		
-	</style>
 	<body>
 		 <script type="text/javascript" src="jquery/jquery.js"></script>
    		 <script type="text/javascript" src="d3/d3.min.js"></script>
     	 <script type="text/javascript" src="d3/d3.geom.min.js"></script>
     	 <script type="text/javascript" src="d3/d3.layout.min.js"></script>
-    	 <script type="text/javascript" src="neo4j/neo4j.js"></script>
     	 
-    	 <script type="text/javascript"> 
-  
+    	 <script type="text/javascript">
+    	
+var s, force, svg, svgContainer, propertiesContainer, commentsContainer, headerContainer, root, width, height, link, gnode, circle, text;
 
-    	 
-var margin = {top: 20, right: 20, bottom: 20, left: 20}, 
-	rect = {left:0, top:0, width:900, height:600};
-/*	gRect =  {left:margin.left, 
-			  top: margin.top, width:svgRect.width - margin.left - margin.right, height:width:svgRect.height - margin.top - margin.bottom};*/
-	
-var force, svg, root, link, node; 
+d3.selection.prototype.moveToFront = function() {
+	  return this.each(function(){
+	    this.parentNode.appendChild(this);
+	  });
+	};
 
-function setupForm(type) {
-  $('#queryForm').empty();
-  if (type == "institution") {
-    $('#queryForm').append(	
-      $('<input />', { id: 'institutionId', name: 'institutionId', placeholder: 'Institution ID', type: 'text', value: '171' }),
-      $('<br />'),
-      $('<input />', { id: 'institutionNla', name: 'institutionNla', placeholder: 'Institution NLA', type: 'text' }),
-      $('<br />'),
-      $('<input />', { id: 'institutionName', name: 'institutionName', placeholder: 'Institution Name', type: 'text' }),
-      $('<br />'),
-      $('<input />', { id: 'maxNodes', name: 'maxNodes', placeholder: 'Maximum nodes count', type: 'text', value: '25' }),
-      $('<br />'),
-      $('<input />', { id: 'querybutton', type: 'submit', value: 'Query', onclick: 'queryInstitution();' })
-    );
-  }
-}
- 
-function queryInstitution() {
-	var institutionId = $("#institutionId").val();
-  var institutionNla = $("#institutionNla").val();
-  var institutionName = $("#institutionName").val();
-  var maxNodes = $("#maxNodes").val();
-  if (maxNodes < 1 )
-	maxNodes = 1;
-  if (maxNodes > 100)
-    maxNodes = 100;
-	 
-  if (institutionId) 
-	getInstitutionGraphById(institutionId, maxNodes, showGraph);
-  else if (institutionNla)
-	getInstitutionGraphByNla(institutionNla, maxNodes, showGraph);
-  else if (institutionName)
-	getInstitutionGraphByName(institutionName, maxNodes, showGraph);
-  else 
-    getAnyInstitutionGraph(maxNodes, showGraph);
-}
- 
-function showGraph(graph) {
+function showInstitution() {
+	var json = "json/" + s.node().value;
 	
-	 root = graph[0];
-	 root.fixed = true;
-	 root.x = rect.width / 2;
-	 root.y = rect.height / 2;
-	
-	 update();
+	d3.json(json, function(json) {
+		
+		root = json;
+		root.fixed = true;
+		
+	//	initCoordinates.call(root);
+		
+		root.x = width / 2;
+		root.y = height / 2;
+		
+		svg.selectAll("g.gnode").remove();
+		propertiesContainer.html("");
+		
+		update();
+	})
 }
 
+/*
+function initCoordinates() {
+	this.x = width / 2;
+	this.y = height / 2;
+	this.px = width / 2;
+	this.py = height / 2;
+	
+	if (this.children) 
+		for (var i=0; i<this.children.length; i++)
+			initCoordinates.call(this.children[i]);
+}
+  */
+   
 function update() {
 	
-	 var nodes = flatten(root),
-     	 links = d3.layout.tree().links(nodes);
-	 
+	var nodes = flatten(root);
+	var links = d3.layout.tree().links(nodes);
+	
 	// Restart the force layout.
 	force
 		.nodes(nodes)
-	    .links(links)
-	    .start();
-
-	// Update the links…
+		.links(links)
+		.start();
+	
+	// select all links and modify it array by our data source
 	link = svg.selectAll("line.link")
-	      .data(links, function(d) { return d.target.id; });
-	
+		.data(links, function(d) { return d.target.id; });
+
 	// Enter any new links.
-	link.enter().insert("line", ".node")
-   		.attr("class", "link")
-    	.attr("x1", function(d) { return d.source.x; })
-    	.attr("y1", function(d) { return d.source.y; })
-    	.attr("x2", function(d) { return d.target.x; })
-    	.attr("y2", function(d) { return d.target.y; });
-	
+	link.enter().append("line")
+		.attr("class", "link")
+		.attr("x1", function(d) { return root.x + d.source.x; })
+		.attr("y1", function(d) { return root.y + d.source.y; })
+		.attr("x2", function(d) { return root.x + d.target.x; })
+		.attr("y2", function(d) { return root.y + d.target.y; });
+
 	// Exit any old links.
 	link.exit().remove();
+	
+	// select all node groups and modify it array by our data source
+	
+	gnode = svg.selectAll("g.gnode")
+		.data(nodes, function(d) { return d.id; });
 
-	// Update the nodes…
+	var newNodes = gnode.enter().append("g")
+		.attr("class", "gnode")
+		.attr("transform", function(d) {
+			return "translate(" + d.x + "," + d.y + ")"; })		
+		.on("click", click)
+		.on("dblclick", dblclick)
+	    .call(force.drag);
+	
+	/*circle = gnode.selectAll("circle.node")
+		.data(nodes, function(d) { return d.id; });
+	*/
+	newNodes.append("circle")
+	    .attr("class", "node");	   
+/*	    .attr("cx", function(d) { return d.x; })
+		.attr("cy", function(d) { return d.y; })*/
+		
+	
+/*	circle.exit().remove();
+		
+	text = gnode.selectAll("text.node")
+		.data(nodes, function(d) { return d.id; });*/
+	
+	newNodes.append("text")
+    	.attr("class", "node")
+		.text(function(d) { return d.name; })
+    	.attr("x", function(d) { return Math.sqrt(d._size * 100) * 1.2; })
+    	.attr("y", function(d) { return Math.sqrt(d._size * 100) / 2; });
+
+	gnode.exit().remove();
+
+		
+	gnode.selectAll("circle.node")
+		.attr("r", function(d) { return Math.sqrt(d._size * 100); })
+		.style("fill", function(d) { return d.color; });
+	
+	gnode.selectAll("text.node")
+		.attr("x", function(d) { return Math.sqrt(d._size * 100) * 1.2; })
+    	.attr("y", function(d) { return Math.sqrt(d._size * 100) / 2; });
+
+	gnode.moveToFront();
+	
+//	text.exit().remove();
+	
+		//.attr("y", function(d) { return d.y; });
+
+		// Exit any old nodes.
+	//	gnode.exit().remove();
+
+
+		
+	/*
 	node = svg.selectAll("circle.node")
 		.data(nodes, function(d) { return d.id; })
-	    .style("fill", color);
-
+		.style("fill", color);
 	node.transition()
-	    .attr("r", function(d) { return d.children ? 10 : Math.sqrt(d.size); });
-
+		.attr("r", function(d) { return Math.sqrt(d._size * 100); })
+		
 	// Enter any new nodes.
 	node.enter().append("circle")
-	   .attr("class", "node")
-	   .attr("cx", function(d) { return d.x; })
-	   .attr("cy", function(d) { return d.y; })
-	   .attr("r", function(d) { return d.children ? 10 : Math.sqrt(d.size); })  
-	   .style("fill", color)
-	   .on("click", click)
-	   .call(force.drag);
-
+		.attr("class", "node")
+		.attr("cx", function(d) { 100; })
+		.attr("cy", function(d) { return d.y; })
+		.attr("r", function(d) { return Math.sqrt(d._size * 100); })
+		.style("fill", color)
+		.on("click", click)
+		.call(force.drag);
 	// Exit any old nodes.
-	node.exit().remove();
+	node.exit().remove();*/
 }
 
+function resize() {
+	width = parseInt(svgContainer.style("width"));
+	height = parseInt(svgContainer.style("height"));
+	
+	force.size([width, height]);
+	
+	root.x = width / 2;
+	root.y = height / 2;
+}
 
 function tick() {
 	//alert("y");
@@ -143,8 +172,17 @@ function tick() {
        .attr("x2", function(d) { return d.target.x; })
        .attr("y2", function(d) { return d.target.y; });
 
-  	node.attr("cx", function(d) { return d.x; })
-       .attr("cy", function(d) { return d.y; });
+	
+	gnode.attr("transform", function(d) {
+		return "translate(" + d.x + "," + d.y + ")"; });
+	
+	/*
+	gnode.attr("cx", function(d) { return d.x; })
+		.attr("cy", function(d) { return d.y; });
+  /*	circle.attr("cx", function(d) { return d.x; })
+    	.attr("cy", function(d) { return d.y; });
+  	text.attr("x", function(d) { return d.x; })
+		.attr("y", function(d) { return d.y; });*/
 }
 
 function color(d) {
@@ -153,9 +191,21 @@ function color(d) {
 }
 
 function click(d) {
+	propertiesContainer.html("");
+
+	for (var k in d.data){
+	    if (d.data.hasOwnProperty(k)) {
+	    	propertiesContainer.append("p")
+			.attr("class", "pre")
+	    		.text(k + " : " + d.data[k]);
+	    }
+	}
+}
+
+function dblclick(d) {
 	if (d.children) {
 	    d._children = d.children;
-	    d.children = null;
+	    d.children = null;	    
 	} else {
 	    d.children = d._children;
 	    d._children = null;
@@ -166,228 +216,142 @@ function click(d) {
 function flatten(root) {
 	var nodes = [], i = 0;
 
-	function recurse(node) {
-	    if (node.children) node.size = node.children.reduce(function(p, v) { return p + recurse(v); }, 0);
-	    if (!node.id) node.id = ++i;
-	    nodes.push(node);
-	    return node.size;
+	function recurseCalcSize(node) {
+		var size = node.size;
+		
+		if (node._children)
+			size += node._children.reduce(function(p, v) { return p + recurseCalcSize(v); }, 0);
+		else if (node.children)
+			size += node.children.reduce(function(p, v) { return p + recurseCalcSize(v); }, 0);
+		
+		return size;
+	}
+	
+	function recurseAddNode(node) {
+		if (node._children) 
+			node._size =  recurseCalcSize(node);
+		else
+			node._size = node.size;
+		
+		if (!node.id) 
+			node.id = ++i;
+		nodes.push(node);
+
+		if (node.children) 
+	    	node.children.forEach(recurseAddNode);
 	}
 
-	root.size = recurse(root);
+	recurseAddNode(root);
+	
 	return nodes;
 }
 
-//function resizeGraph() {
-
-	// Find the new window dimensions
-	//width = parseInt(d3.select("#graph").style("width")) - margin.right - margin.left,
-//	height = parseInt(d3.select("#graph").style("height")) - margin.top - margin.bottom;
+function addLegend(index, text, color) {
+	var legend = svg.append("g")
+		.attr("class", "gnode-legend")
+		.attr("transform", "translate(" + Math.sqrt(100) + "," + Math.sqrt(100) * (index * 2.5 + 1) + ")");	
+			
+	legend.append("circle")
+		.attr("class", "node-legend")
+		.attr("r", Math.sqrt(100))
+		.style("fill", color);
 	
-	//alert(width + "," + height)
-	 
-	// Update the range of the scale with new width/height
-	//xScale.range([0, width]).nice(d3.time.year);
-	//yScale.range([height, 0]).nice();
-	 
-	// Update the axis with the new scale 
-/*	graph.select('.x.axis')
-	  .attr("transform", "translate(0," + height + ")")
-	  .call(xAxis);
-	 
-	graph.select('.y.axis')
-	  .call(yAxis);*/
-	 
-	// Force D3 to recalculate and update the line 
-/*	graph.selectAll('.line')
-	  .attr("d", line);*/
-	  
-	//svg.attr("width", width).attr("height", height);
-//}
- 
-$(function(){
-	//var windowWidth = parseInt(d3.select("body").style("width")),
-	//	windowHeight = parseInt(d3.select("body").style("height"));
-	
-	//alert("x");
-	
-	force = d3.layout.force()
-    	.on("tick", tick)
-    	.charge(function(d) { return d._children ? -d.size  : -200; })
-    	.linkDistance(function(d) { return d.target._children ? 200 : 100; })
-    	.size([rect.width, rect.height]);
-	
-	svg = d3.select("svg")
-    	.attr("width", rect.width)
-    	.attr("height", rect.height);
-
-	
-
-	
-	/*	.append("g")
-		.attr("transform", "translate(" + gRect.left + "," + gRect.top + ")");*/
-	
- 	/*
-    svg = d3.select("body").append("svg")
- 		.attr("width", width + margin.right + margin.left)
- 		.attr("height", height + margin.top + margin.bottom)
- 		.append("g")
- 		.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
- 	*/
- 	
- 	 
- 	
-	
-	
-	/*var margin = {top: 30, right: 20, bottom: 30, left: 50},
-		width = 600 - margin.left - margin.right,
-		height = 270 - margin.top - margin.bottom;
-
-	var force = d3.layout.force()
-		.on("tick", tick)
-		.charge(function(d) { return d._children ? -d.size : -30; })
-		.linkDistance(function(d) { return d.target._children ? 80 : 30; })
-		.size([width, height]);
-	
-/*	var vis = d3.select("#chart").append("svg")
-		.attr("width", w)
-		.attr("height", h);*/
-	
-	
-
-	
-	/*
-	// Parse the date / time
-		
-	var parseDate = d3.time.format("%d-%b-%y").parse;
-	
-	// Set the ranges
-	var x = d3.time.scale().range([0, width]);
-	var y = d3.scale.linear().range([height, 0]);
-	
-	// Define the axes
-	var xAxis = d3.svg.axis().scale(x)
-		.orient("bottom").ticks(5);
-	var yAxis = d3.svg.axis().scale(y)
-		.orient("left").ticks(5);
-	
-	// Define the line
-	var valueline = d3.svg.line()
-		.x(function(d) { return x(d.date); })
-		.y(function(d) { return y(d.close); });
-	
-	// Adds the svg canvas
-	var svg = d3.select("body")
-		.append("svg")
-			.attr("width", width + margin.left + margin.right)
-			.attr("height", height + margin.top + margin.bottom)
-		.append("g")
-			.attr("transform",
-				"translate(" + margin.left + "," + margin.top + ")");
-
-	// Get the data
-	d3.csv("data/data.csv", function(error, data) {
-		data.forEach(function(d) {
-			d.date = parseDate(d.date);
-			d.close = +d.close;
-		});
-
-		// Scale the range of the data
-		x.domain(d3.extent(data, function(d) { return d.date; }));
-		y.domain([0, d3.max(data, function(d) { return d.close; })]);
-
-		// Add the valueline path.
-		svg.append("path")
-			.attr("class", "line")
-			.attr("d", valueline(data));
-
-		// Add the X Axis
-		svg.append("g")
-			.attr("class", "x axis")
-			.attr("transform", "translate(0," + height + ")")
-			.call(xAxis);
-
-		// Add the Y Axis
-		svg.append("g")
-			.attr("class", "y axis")
-			.call(yAxis);
-	});
-	*/
-	
-	
-	$('#testServerConnection').click(function(){
-		setupForm("none");
-		getVersion(function(version) {
-			alert("Neo4J server version: " + version);
-		});
-	});
-	$('#institutionDemo').click(function(){
-		setupForm("institution");
-		
-	});
-});
-    	 
-    	 
-    	 /*
-    	 
-    	 */
-    	 /*
-    	 if (!testServerConnection())
-    		 alert( "Unable to connect to Neo4J Server!" );
-    	 else
-    		 alert( "Connection succfull" );
-    	 /*
-    	document.write("test");
-  */
-    	/*
-(function() {
-var flickerAPI = "http://api.flickr.com/services/feeds/photos_public.gne?jsoncallback=?";
-$.get( flickerAPI, {
-	tags: "mount rainier",
-	tagmode: "any",
-	format: "json"
-}, null, "json")
-	.done(function( data ) {
-	//	alert( "Data Loaded: " + data );
-		$.each( data.items, function( i, item ) {
-			$( "<img>" ).attr( "src", item.media.m ).appendTo( "#images" );
-			if ( i === 3 ) {
-				return false;
-			}
-		});
-		});
-	})();
-
-  /*  	var response = cypher("MATCH (n:ARC_Grant) RETURN n LIMIT 1", null);
-    	document.write(response);
-    */	
-    	/*
-var req = createRequest(); // defined above
-// Create the callback:
-req.onreadystatechange = function() {
-	if (req.readyState != 4) return; // Not there yet
-	if (req.status != 200) {
-	// Handle request failure here...
-		return;
-	}
-    	  // Request successful, read the response
-   var resp = req.responseText;
-   // ... and use it as needed by your app.
+	legend.append("text")
+		.attr("class", "node-legend")
+		.text(text)
+		.attr("x", Math.sqrt(100)*1.2)
+		.attr("y", Math.sqrt(100)/2);
 }
 
-req.open("GET", url, true);
-req.send();
 
-req.open("POST", url, true);
-req.setRequestHeader("Content-Type",
-                     "application/x-www-form-urlencoded");
-req.send(form-encoded request body);*/
+(function(){
+	
+	var table = d3.select("body").append("table")
+		.attr("class", "container");
+	var row1 = table.append("tr")
+		.attr("calss", "rowSelectInstitution");
+	var row2 = table.append("tr")
+		.attr("class", "rowGraph");
+	var row3 = table.append("tr")
+		.attr("class", "rowComment");
+	var cell1 = row1.append("td")
+		.attr("colspan", 2);
+	headerContainer = cell1.append("span");
+	svgContainer = row2.append("td")
+		.attr("class", "cellGraph");
+	propertiesContainer = row2.append("td")
+		.attr("class", "cellData pre");
+	commentsContainer = row3.append("td")
+		.attr("class", "cellComment")
+		.attr("colspan", 2);
+	
+	width = parseInt(svgContainer.style("width"));
+	height = parseInt(svgContainer.style("height"));
+
+	s = cell1.append("select");
+
+	s.append("option").text("Loading data...");
+	
+	svg = svgContainer.append("svg");
+	
+	window.onresize = resize;
+	
+	force = d3.layout.force()
+		.on("tick", tick)
+		.charge(function(d) { return -d._size*50; })
+		//.chargeDistance(100)
+		.gravity(0)
+		.linkDistance(100) // function(d) { return d.target._children ? 200 : 100; }
+		.size([width, height]);
+	
+	// Load JSON Index 
+	d3.json("json/index.json", function(json) {
+		
+		headerContainer.text(json.select);
+		commentsContainer.text(json.comments);
+		
+		var index = 0;
+		for (var text in json.legend) 
+			if (json.legend.hasOwnProperty(text)) 
+				addLegend(index++, text, json.legend[text]);
+		
+		s.select("option")
+			.remove();
+		
+		s.selectAll("option")
+			.data(d3.keys(json.index))
+			.enter()
+			.append("option")
+			.text(function(d){return d;});
+		
+		s.selectAll("option")
+			.data(d3.values(json.index))
+			.attr("value", function(d){return d;});
+		
+		s.on("change", showInstitution);
+		
+		showInstitution();
+	})
+})()
+
+/*	 <table class="container">
+  		 	<tr class="rowSelectInstitution">
+    			<td colspan="2">
+    				Institution: 
+    				<select id='selectInstitution'>
+						<option value='1'>Loading data...</option>
+					</select>
+    			</td>
+ 			</tr>
+  			<tr class="rowGraph">
+    			<td class="cellGraph">
+    				<svg id="graph"></svg>
+    			</td>
+    			<td class="cellData">Properties</td>
+  			</tr>
+		</table> */
 
     	 </script>	
-		 <input id="testServerConnection" type="button" value="Get Version" />
-		 <input id="institutionDemo" type="button" value="Institution Demo" />
-		 <br>	 
-		 <div id="queryForm"></div> 	 	
-		 <br>	
-		 <svg id="graph"></svg> 	 	
+    
 	 </body>
 </html>
