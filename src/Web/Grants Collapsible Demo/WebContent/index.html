@@ -5,14 +5,14 @@
 		<title> Grants Project Demo </title>
 	</head>
 	<body>
-		 <script type="text/javascript" src="jquery/jquery.js"></script>
-   		 <script type="text/javascript" src="d3/d3.min.js"></script>
+		 <script type="text/javascript" src="d3/d3.min.js"></script>
     	 <script type="text/javascript" src="d3/d3.geom.min.js"></script>
     	 <script type="text/javascript" src="d3/d3.layout.min.js"></script>
     	 
     	 <script type="text/javascript">
-    	
+        	 
 var s, force, svg, svgContainer, propertiesContainer, commentsContainer, headerContainer, root, width, height, link, gnode, circle, text;
+var maxLabel = 150;
 
 d3.selection.prototype.moveToFront = function() {
 	  return this.each(function(){
@@ -108,7 +108,7 @@ function update() {
 	
 	newNodes.append("text")
     	.attr("class", "node")
-		.text(function(d) { return d.name; })
+		.text(function(d) { return d.name.length > maxLabel ? (d.name.substring(0, maxLabel - 3) + "...") : d.name; })
     	.attr("x", function(d) { return Math.sqrt(d._size * 100) * 1.2; })
     	.attr("y", function(d) { return Math.sqrt(d._size * 100) / 2; });
 
@@ -318,14 +318,20 @@ function addLegend(index, text, color) {
 		s.select("option")
 			.remove();
 		
+		var keys = Object.keys(json.index);
+		keys.sort();
+		var values = [];
+		for (var key in keys)
+			values.push(json.index[keys[key]]);
+		
 		s.selectAll("option")
-			.data(d3.keys(json.index))
+			.data(keys)
 			.enter()
 			.append("option")
 			.text(function(d){return d;});
 		
 		s.selectAll("option")
-			.data(d3.values(json.index))
+			.data(values /*d3.values(json.index)*/)
 			.attr("value", function(d){return d;});
 		
 		s.on("change", showInstitution);
