@@ -7,8 +7,11 @@ import org.grants.harvesters.Harvester;
 import org.w3c.dom.Element;
 
 public class Phisical {
+	protected static final String TYPE_STREET_ADDRESS = "streetAddress";
+	protected static final String TYPE_POSTAL_ADDRESS = "postalAddress";
+	
 	public enum Type {
-		unknown, streetAddress, postalAddress
+		unknown, street, postal
 	}
 	
 	public Type type;
@@ -17,10 +20,16 @@ public class Phisical {
 	
 	public void setTypeString(final String type) {
 		this.typeString = type;
-		if (null == type || type.length() == 0)
+		if (null == type || type.isEmpty())
 			this.type = Type.unknown;
-		else
-			this.type = Type.valueOf(type);
+		else if (type.equals(TYPE_STREET_ADDRESS))
+			this.type = Type.street;
+		else if (type.equals(TYPE_POSTAL_ADDRESS))
+			this.type = Type.postal;
+		else {
+			System.out.println("Invalid Phisical Type: " + type);
+			this.type = Type.unknown;
+		}
 	}
 		
 	protected void setAddressParts(List<Element> list) {
@@ -40,10 +49,10 @@ public class Phisical {
 		return phisical;
 	}
 	
-	public String GetAddress(AddressPart.Type type) {
+	public String toString(AddressPart.Type type) {
 		StringBuilder sb = new StringBuilder();
 		for (AddressPart addressPart : addressParts) 
-			if (addressPart.type == type && addressPart.IsValid()) {
+			if (addressPart.type == type && addressPart.isValid()) {
 				if (sb.length() > 0)
 					sb.append(' ');
 				sb.append(addressPart.value);
@@ -55,14 +64,14 @@ public class Phisical {
 		return null;
 	}
 	
-	public String GetAddress() {
+	public String toString() {
 		StringBuilder sb = new StringBuilder();
 		
-		String address = GetAddress(AddressPart.Type.addressLine);
+		String address = toString(AddressPart.Type.addressLine);
 		if (null != address)
 			sb.append(address);
 		
-		String text = GetAddress(AddressPart.Type.text);
+		String text = toString(AddressPart.Type.text);
 		if (null != text)
 		{
 			if (sb.length() > 0)
@@ -71,7 +80,7 @@ public class Phisical {
 			sb.append(text);			
 		}
 		
-		String phone = GetAddress(AddressPart.Type.telephoneNumber);
+		String phone = toString(AddressPart.Type.telephoneNumber);
 		if (null != phone)
 		{
 			if (sb.length() > 0)
@@ -80,7 +89,7 @@ public class Phisical {
 			sb.append(phone);			
 		}
 		
-		String fax = GetAddress(AddressPart.Type.faxNumber);
+		String fax = toString(AddressPart.Type.faxNumber);
 		if (null != fax)
 		{
 			if (sb.length() > 0)
@@ -89,7 +98,7 @@ public class Phisical {
 			sb.append(fax);			
 		}
 		
-		String unknown = GetAddress(AddressPart.Type.unknwown);
+		String unknown = toString(AddressPart.Type.unknwown);
 		if (null != unknown)
 		{
 			if (sb.length() > 0)

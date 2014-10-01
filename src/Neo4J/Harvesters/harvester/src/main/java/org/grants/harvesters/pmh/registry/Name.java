@@ -1,13 +1,15 @@
 package org.grants.harvesters.pmh.registry;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
+import org.apache.commons.lang.StringUtils;
 import org.grants.harvesters.Harvester;
 import org.w3c.dom.Element;
 
 public class Name {
-	
+	private static final String ALTERNATE = "alternate";
 	public enum Type {
 		unknown, primary, abbreviated, alternative, text, formerly
 	}
@@ -19,14 +21,20 @@ public class Name {
 	
 	public List<NamePart> parts;
 
-	public void setTypeString(final String type) {
+	protected void setTypeString(final String type) {
 		this.typeString = type;
-		if (null == type || type.length() == 0)
+		try {
+			if (null == type || type.isEmpty())
+				this.type = Type.unknown;
+			else if (type.equals(ALTERNATE))
+				this.type = Type.alternative;
+			else
+				this.type = Type.valueOf(type);
+		} catch(Exception e) {
+			System.out.println("Invalid name type: " + type);
+			
 			this.type = Type.unknown;
-		else if (type.equals("alternate"))
-			this.type = Type.abbreviated;
-		else
-			this.type = Type.valueOf(type);
+		}
 	}
 	
 	protected void setParts(List<Element> list) {
@@ -48,85 +56,65 @@ public class Name {
 		return name;		
 	}
 	
-	public NamePart getNamePartByType(NamePart.Type type) {
+	public boolean isValid() {
+		if (null != parts && parts.size() > 0)
+			for (NamePart part : parts) 
+				if (part.isValid())
+					return true;		
+		return false;
+	}
+	
+	protected static List<String> extractNameParts(List<NamePart> parts, NamePart.Type type) {
+		List<String> list = new ArrayList<String>();
+		Iterator<NamePart> iter = parts.iterator();
+		while (iter.hasNext()) {
+			NamePart part = iter.next();
+			if (part.type == type) {
+				if (part.isValid()) 
+					list.add(part.toString());								
+				iter.remove();
+			}
+		}	
+		return list;
+	}
+	
+	public List<String> getNameParts(NamePart.Type type) {
+		List<String> list = null;
+		if (null != parts)
+			for (NamePart part : parts) 
+				if (part.isValid() && part.type == type) {
+					if (null == list) 
+						list = new ArrayList<String>();				
+					list.add(part.toString());
+					
+				}		
+		return list;
+	}
+	
+	public String getNamePart(NamePart.Type type) {
 		if (null != parts)
 			for (NamePart part : parts) 
 				if (part.type == type)
-					return part;
+					return part.toString();
 		
 		return null;
 	}
 	
-	public String getFullName() {
-		NamePart full = getNamePartByType(NamePart.Type.full); 
-		if (null != full)
-			return full.value;		
-		return null;		
-	}
+	public String toString() {
+		List<NamePart> parts = new ArrayList<NamePart>(this.parts);
+		List<String> name = new ArrayList<String>();
+		name.addAll(extractNameParts(parts, NamePart.Type.suffix));
+		name.addAll(extractNameParts(parts, NamePart.Type.title));
+		name.addAll(extractNameParts(parts, NamePart.Type.given));
+		name.addAll(extractNameParts(parts, NamePart.Type.family));
+		name.addAll(extractNameParts(parts, NamePart.Type.full));
+		for (NamePart part : parts)
+			if (part.isValid())
+				name.add(part.toString());
 	
-	public String getPersonName() {
-		NamePart family = getNamePartByType(NamePart.Type.family); 
-		NamePart given = getNamePartByType(NamePart.Type.given); 
-		if (null != family && null != given) {
-			NamePart suffix = getNamePartByType(NamePart.Type.suffix); 
-			NamePart title = getNamePartByType(NamePart.Type.title); 
-			
-			String name = null;
-			if (null != suffix && suffix.IsValid())
-				name = suffix.value;
-			if (null != title && title.IsValid()) {
-				if (null != name)
-					name += ' ';
-				name += title.value;
-			}
-			if (null != given && given.IsValid()) {
-				if (null != name)
-					name += ' ';
-				name += given.value;
-			}
-			if (null != given && given.IsValid()) {
-				if (null != name)
-					name += ' ';
-				name += given.value;
-			}
-			
-			return name;
-		}  		
+		if (name.size() > 0)
+			return StringUtils.join(name, ' ');
+		
 		return null;
 	}
-	
-	public String GetCombinedName() {
-		StringBuilder sb = new StringBuilder();
-		for (NamePart part : parts) 
-			if (part.IsValid()) {
-				if (sb.length() == 0)
-					sb.append(' ');
-				sb.append(part.value);
-			}
-		if (sb.length() > 0)
-			return sb.toString();		
-		return null;
-	}
-	
-	public String GetActivityName() {
-		return GetCombinedName();		
-	}
-	
-	public String GetCollectionName() {
-		return GetCombinedName();		
-	}
-	
-	public String GetServiceName() {
-		return GetCombinedName();		
-	}
-	
-	public String GetPartyName() {
-		String name = getPersonName();
-		if (null == name)
-			name = getFullName();
-		if (null == name)
-			name = GetCombinedName();		
-		return name;
-	}
-	
 }

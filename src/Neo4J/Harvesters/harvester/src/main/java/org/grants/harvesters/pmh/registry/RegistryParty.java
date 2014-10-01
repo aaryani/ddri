@@ -3,7 +3,10 @@ package org.grants.harvesters.pmh.registry;
 import org.w3c.dom.Element;
 
 public class RegistryParty extends RegistryObject {
-
+	private static final String GROUP = "Group";
+	private static final String PERSON1 = "Person";
+	private static final String PERSON2 = "PERSON";
+	
 	public enum Type {
 		unknown, group, person, administrativePosition, publisher
 	}
@@ -15,11 +18,9 @@ public class RegistryParty extends RegistryObject {
 	public void setTypeString(final String type) {
 		this.typeString = type;
 		try {
-			if (null == type || type.isEmpty())
-				this.type = Type.unknown;
-			else if (type.equals("Group"))
+			if (type.equals(GROUP))
 				this.type = Type.group;
-			else if (type.equals("Person") || type.equals("PERSON"))
+			else if (type.equals(PERSON1) || type.equals(PERSON2))
 				this.type = Type.person;
 			else
 				this.type = Type.valueOf(type);

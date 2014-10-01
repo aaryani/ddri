@@ -26,10 +26,16 @@ public class RelatedInfo {
 	
 	public void setTypeString(final String type) {
 		this.typeString = type;
-		if (null == type || type.length() == 0)
+		try {
+			if (null == type || type.isEmpty())
+				this.type = Type.unknown;
+			else
+				this.type = Type.valueOf(type);
+		} catch (Exception e) {
+			System.out.println("Invalid Related Info type: " + type);
 			this.type = Type.unknown;
-		else
-			this.type = Type.valueOf(type);
+		}
+		
 	}
 	
 	/*
@@ -78,5 +84,9 @@ public class RelatedInfo {
 		relatedInfo.setRelations(Harvester.getChildElementsByTagName(element, "relation"));
 		
 		return relatedInfo;		
+	}
+	
+	public boolean isValid() {
+		return true;
 	}
 }

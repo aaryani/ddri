@@ -4,11 +4,11 @@ import org.w3c.dom.Element;
 
 public class Arg {
 	public enum Type {
-		string, object
+		unknown, string, object
 	}
 	
 	public enum Use {
-		inline, keyValue
+		unknown, inline, keyValue
 	}
 
 	public boolean required;
@@ -17,15 +17,25 @@ public class Arg {
 	public Use use;
 	public String useString;
 	public String value;
-	
+		
 	public void setTypeString(final String type) {
 		this.typeString = type;
-		this.type = Type.valueOf(type);
+		try {
+			this.type = Type.valueOf(type);
+		} catch(Exception e) {
+			System.out.println("Invalid Arg Type: " + type);
+			this.type = Type.unknown;
+		}
 	}
 	
 	public void setUseString(final String use) {
 		this.useString = use;
-		this.use = Use.valueOf(use);
+		try {
+			this.use = Use.valueOf(use);
+		} catch (Exception e) {
+			System.out.println("Invalid Arg Use: " + type);
+			this.use = Use.unknown;
+		}
 	}
 	
 	public static Arg fromElement(Element element) {
@@ -39,7 +49,7 @@ public class Arg {
 		return arg;
 	}
 
-	public boolean IsValid() {
+	public boolean isValid() {
 		return null != value && !value.isEmpty();
 	}
 }

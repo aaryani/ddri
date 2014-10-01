@@ -7,7 +7,8 @@ import org.grants.harvesters.Harvester;
 import org.w3c.dom.Element;
 
 public class RegistryService extends RegistryObject {
-
+	protected static final String SEARCH_CSW = "search-CSW";
+	
 	public enum Type {
 		unknown, create, generate, report, annotate, transform, assemble, 
 	    harvest_oaipmh, search_http, search_opensearch, search_sru, 
@@ -23,7 +24,7 @@ public class RegistryService extends RegistryObject {
 	public void setTypeString(final String type) {
 		this.typeString = type;
 		try {
-			if (type.equals("search-CSW"))
+			if (type.equals(SEARCH_CSW))
 				this.type = Type.search_csw;
 			else
 				this.type = Type.valueOf(type.replace('-', '_'));

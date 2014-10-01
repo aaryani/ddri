@@ -17,7 +17,7 @@ public class Date {
 	public void setTypeString(final String type) {
 		this.typeString = type;
 		try {
-			if (null == type || type.length() == 0)
+			if (null == type || type.isEmpty())
 				this.type = Type.unknown;
 			else
 				this.type = Type.valueOf(type);

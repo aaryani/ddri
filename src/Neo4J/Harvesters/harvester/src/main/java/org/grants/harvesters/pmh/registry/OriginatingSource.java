@@ -3,6 +3,7 @@ package org.grants.harvesters.pmh.registry;
 import org.w3c.dom.Element;
 
 public class OriginatingSource {
+	private static final String AUTHORATIVE = "authorative";
 	public enum Type {
 		unknown, authoritative
 	}
@@ -13,12 +14,18 @@ public class OriginatingSource {
 	
 	public void setTypeString(final String type) {
 		this.typeString = type;
-		if (null == type || type.length() == 0)
+		try {
+			if (null == type || type.isEmpty())
+				this.type = Type.unknown;
+			else if (type.equals(AUTHORATIVE))
+				this.type = Type.authoritative;
+			else
+				this.type = Type.valueOf(type);
+		} catch (Exception e) {
+			System.out.println("Invalid Originating Source Type: " + type);
+			
 			this.type = Type.unknown;
-		else if (type.equals("authorative"))
-			this.type = Type.authoritative;
-		else
-			this.type = Type.valueOf(type);
+		}
 	}
 	
 	public boolean IsValid() {

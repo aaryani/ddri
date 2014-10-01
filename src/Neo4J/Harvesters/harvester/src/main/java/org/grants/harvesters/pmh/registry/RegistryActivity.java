@@ -4,8 +4,9 @@ import org.w3c.dom.Element;
 
 public class RegistryActivity extends RegistryObject {
 	
+	private static final String PROJECT = "PROJECT";
 	public enum Type {
-		award, course, event, program, project, dataset
+		unknown, award, course, event, program, project, dataset
 	}
 	
 	public Type type;
@@ -14,10 +15,16 @@ public class RegistryActivity extends RegistryObject {
 	
 	public void setTypeString(final String type) {
 		typeString = type;
-		if (type.equals("PROJECT"))
-			this.type = Type.project;
-		else
-			this.type = Type.valueOf(type);
+		try {
+			if (type.equals(PROJECT))
+				this.type = Type.project;
+			else
+				this.type = Type.valueOf(type);
+		} catch (Exception e) {
+			System.out.println("Invalid Registry Activity Type: " + type);
+			this.type = Type.unknown;
+		}
+		
 	}
 	
 	public static RegistryActivity fromElement(Element element) {

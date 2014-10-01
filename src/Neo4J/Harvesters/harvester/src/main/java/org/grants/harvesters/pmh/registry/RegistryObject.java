@@ -92,7 +92,7 @@ public class RegistryObject {
 				descriptions.add(Description.fromElement(element));
 		}
 	}	
-		
+	
 	protected void setRelatedObjects(List<Element> list) {
 		if (null != list && list.size() > 0) {
 			relatedObjects = new ArrayList<RelatedObject>();
@@ -118,7 +118,7 @@ public class RegistryObject {
 		setRelatedObjects(Harvester.getChildElementsByTagName(element, "description"));
 	}
 	
-	public Name getPrimaryName() {
+	/*public Name getPrimaryName() {
 		if (null != names)
 			for (Name name : names) 
 				if (name.type == Name.Type.primary)
@@ -132,30 +132,95 @@ public class RegistryObject {
 			return names.get(0);
 		
 		return null;		
+	}*/
+	
+	public List<String> getIdentifiers(Identifier.Type type) {
+		List<String> list = null;
+		if (null != identifiers)
+			for (Identifier identifier : identifiers) 
+				if (identifier.isValid() && identifier.type == type) {
+					if (null == list) 
+						list = new ArrayList<String>();				
+					list.add(identifier.toString());
+					
+				}		
+		return list;
 	}
 	
-	public Phisical GetPhisicalAddress(Phisical.Type type) {
+	public List<String> getNames(Name.Type type) {
+		List<String> list = null;
+		if (null != names)
+			for (Name name : names) 
+				if (name.isValid() && name.type == type) {
+					if (null == list) 
+						list = new ArrayList<String>();				
+					list.add(name.toString());
+					
+				}		
+		return list;
+	}
+	
+	public List<String> getPhisicalAddresses(Phisical.Type type) {
+		List<String> list = null;
 		Phisical phisical;
+		String str;
 		if (null != locations) 
 			for (Location location : locations) 
 				if (null != location.addresses)
 					for (Address address : location.addresses) 
-						if ((phisical = address.GetPhisical(type)) != null)
-							return phisical;
-							
-		return null;
+						if ((phisical = address.getPhisical(type)) != null) 
+							if ((str = phisical.toString()) != null) {
+								if (null == list) 
+									list = new ArrayList<String>();				
+								list.add(str.toString());
+							}
+		return list;
 	}
 	
-	public Electronic GetElectronicAddress(Electronic.Type type) {
+	public List<String> getElectronicAddresses(Electronic.Type type) {
+		List<String> list = null;
 		Electronic electronic;
+		String str;
 		if (null != locations) 
 			for (Location location : locations) 
 				if (null != location.addresses)
 					for (Address address : location.addresses)
-						if ((electronic = address.GetElectronic(type)) != null)
-							return electronic;
+						if ((electronic = address.getElectronic(type)) != null)
+							if ((str = electronic.toString()) != null) {
+								if (null == list) 
+									list = new ArrayList<String>();				
+								list.add(str.toString());
+							}
 							
-		return null;
+		return list;
+	}
+	
+	public List<String> getSubjects() {
+		List<String> list = null;
+		if (null != subjects) 
+			for (Subject subject : subjects) 
+				if (subject.isValid()) {
+					if (null == list) 
+						list = new ArrayList<String>();
+						
+					list.add(subject.toString());
+				}			
+		
+		return list;
+	}
+	
+	public List<String> getDescriptions() {
+		List<String> list = null;
+		if (null != descriptions) 
+			for (Description description : descriptions) 
+				if (description.isValid()) {
+					if (null == list) 
+						list = new ArrayList<String>();
+						
+					list.add(description.toString());
+				}			
+		
+		return list;
 	}
 }
 

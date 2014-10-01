@@ -23,10 +23,15 @@ public class Electronic {
 	
 	public void setTypeString(final String type) {
 		this.typeString = type;
-		if (null == type || type.length() == 0)
+		try {
+			if (null == type || type.isEmpty())
+				this.type = Type.unknown;
+			else
+				this.type = Type.valueOf(type);
+		} catch (Exception e) {
+			System.out.println("Invalid Electronic Type: " + type);
 			this.type = Type.unknown;
-		else
-			this.type = Type.valueOf(type);
+		}
 	}
 
 	/*
@@ -55,7 +60,7 @@ public class Electronic {
 		return electronic;
 	}
 	
-	public String GetAddress() {
+	public String toString() {
 		if (null != value && !value.isEmpty()) {
 			String address = value;
 			

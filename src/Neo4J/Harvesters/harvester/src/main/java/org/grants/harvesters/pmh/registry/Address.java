@@ -52,7 +52,7 @@ public class Address {
 		return address;
 	}
 	
-	public Phisical GetPhisical(Phisical.Type type) {
+	public Phisical getPhisical(Phisical.Type type) {
 		if (null != phisicals)
 			for (Phisical phisical : phisicals) 
 				if (Phisical.Type.unknown == type || phisical.type == type) 
@@ -61,7 +61,7 @@ public class Address {
 		return null;
 	}
 	
-	public Electronic GetElectronic(Electronic.Type type) {
+	public Electronic getElectronic(Electronic.Type type) {
 		if (null != electronics)
 			for (Electronic electronic : electronics) 
 				if (Electronic.Type.unknown == type || electronic.type == type) 

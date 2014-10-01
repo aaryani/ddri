@@ -7,7 +7,10 @@ import org.grants.harvesters.Harvester;
 import org.w3c.dom.Element;
 
 public class RegistryCollection extends RegistryObject {
-
+	private static final String DATA_COLLECTION = "Data Collection";
+	private static final String DATASET = "Dataset";
+	private static final String CATALOGUE = "Catalogue";
+	
 	public enum Type {
 		unknown, catalogueOrIndex, collection, registry, 
 		repository, dataset, catalogue, nonGeographicDataset,
@@ -27,13 +30,11 @@ public class RegistryCollection extends RegistryObject {
 	public void setTypeString(final String type) {
 		this.typeString = type;
 		try {
-			if (null == type || type.length() == 0)
-				this.type = Type.unknown;
-			else if (type.equals("Data Collection"))
+			if (type.equals(DATA_COLLECTION))
 				this.type = Type.collection;
-			else if (type.equals("Dataset"))
+			else if (type.equals(DATASET))
 				this.type = Type.dataset;
-			else if (type.equals("Catalogue"))
+			else if (type.equals(CATALOGUE))
 				this.type = Type.catalogue;
 			else
 				this.type = Type.valueOf(type);

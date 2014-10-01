@@ -322,8 +322,10 @@ public class HarvesterPmh extends Harvester {
 		    recordList = ListRecords(set, MetadataPrefix.rif, null, recordList);
 		    
 		    if (null != recordList) {
-		    	System.out.println("Retrieved " + recordList.size() + "records");
+		    	System.out.println("Retrieved " + recordList.size() + " records");
 		    	
+		    	// Only for debug, query just one set
+		    	//break;
 		    }
 		}
 		

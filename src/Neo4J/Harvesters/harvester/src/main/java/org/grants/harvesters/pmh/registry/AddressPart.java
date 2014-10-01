@@ -34,7 +34,7 @@ public class AddressPart {
 		return addressPart;
 	}
 	
-	public boolean IsValid() {
+	public boolean isValid() {
 		return null != value && !value.isEmpty();
 	}
 }

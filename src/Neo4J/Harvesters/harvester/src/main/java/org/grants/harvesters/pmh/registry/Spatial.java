@@ -4,6 +4,7 @@ import org.w3c.dom.Element;
 
 public class Spatial {
 	public enum Type {
+		unknown,
 	    gmlKmlPolyCoords, 	// A set of KML long/lat co-ordinates derived from GML (OpenGIS Geography Markup Language) defining a polygon as described by the KML coordinates element but without the altitude component
 	    gpx, 				// the GPS Exchange Format
 	    iso31661, 			// ISO 3166-1 Codes for the representation of names of countries and their subdivisions - Part 1: Country codes
@@ -22,7 +23,13 @@ public class Spatial {
 	
 	public void setTypeString(final String type) {
 		this.typeString = type;
-		this.type = Type.valueOf(type);
+		try {
+			this.type = Type.valueOf(type);
+		} catch (Exception e) {
+			System.out.println("Invalid Spartial Type: " + type);
+			this.type = Type.unknown;
+		}
+		
 	}
 		
 	public static Spatial fromElement(Element element) {

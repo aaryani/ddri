@@ -3,7 +3,8 @@ package org.grants.harvesters.pmh.registry;
 import org.w3c.dom.Element;
 
 public class NamePart {
-
+	private static final String FAMILYNAME = "familyname";
+	private static final String GIVENNAME = "givenname";
 	public enum Type {
 	    unknown,
 		family, 		// last name or surname
@@ -24,14 +25,14 @@ public class NamePart {
 	public String typeString;
 	public String value;
 	
-	public void setTypeString(final String type) {
+	protected void setTypeString(final String type) {
 		this.typeString = type;
 		try {
-			if (null == type || type.length() == 0)
+			if (null == type || type.isEmpty())
 				this.type = Type.unknown;
-			else if (type.equals("familyname"))
+			else if (type.equals(FAMILYNAME))
 				this.type = Type.family;
-			else if (type.equals("givenname"))
+			else if (type.equals(GIVENNAME))
 				this.type = Type.given;
 			else
 				this.type = Type.valueOf(type);
@@ -52,7 +53,11 @@ public class NamePart {
 		return namePart;
 	}
 	
-	public boolean IsValid() {
+	public boolean isValid() {
 		return null != value && !value.isEmpty(); 
+	}
+	
+	public String toString() {
+		return value;
 	}
 }
