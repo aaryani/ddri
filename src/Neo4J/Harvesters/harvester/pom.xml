@@ -3,21 +3,5 @@
   <groupId>org.grants.harvesters</groupId>
   <artifactId>harvester</artifactId>
   <version>1.0.0</version>
-  <name>Harvesters library</name>
-  
-  <repositories>
-    <repository>
-      <id>neo4j-contrib-releases</id>
-      <url>https://raw.github.com/neo4j-contrib/m2/master/releases</url>
-    </repository>
-  </repositories>
-
-  <dependencies>
-    <dependency>
-      <groupId>org.neo4j</groupId>
-      <artifactId>neo4j-rest-graphdb</artifactId>
-      <version>2.0.2-SNAPSHOT</version>
-    </dependency>
-   </dependencies>
-  
+  <name>Harvesters library</name>  
 </project>

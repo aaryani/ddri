@@ -22,9 +22,9 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
-public abstract class Harvester {
+public class Harvester {
 	
-	protected static Document GetXml( final String url ) throws ParserConfigurationException, SAXException, IOException {
+	protected static Document GetXml( final String uri ) throws ParserConfigurationException, SAXException, IOException {
 		DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
 
 	    dbf.setNamespaceAware(true);
@@ -34,7 +34,7 @@ public abstract class Harvester {
 	  //  dbf.setValidating(dtdValidate || xsdValidate);
 		
 		DocumentBuilder db = dbf.newDocumentBuilder(); 
-		Document doc = db.parse(url);
+		Document doc = db.parse(uri);
 		
 		return doc;
 	}
@@ -102,57 +102,4 @@ public abstract class Harvester {
 			return element.getTextContent();
 		return null;
 	}
-	
-	
-	/*
-	protected Element getSingleElement(NodeList nl) throws Exception {
-		if (null == nl || nl.getLength() == 0)
-			throw new Exception("No elements has been find by this tag");
-		if (nl.getLength() > 1)
-			throw new Exception("Too many elements has been find by this tag. Consider to use getElementsByTagName instead");
-		
-		Node node = nl.item(0);
-		if (!(node instanceof Element))
-			throw new Exception("The node is not element");
-		
-		return (Element) node;
-	}
-	
-	protected Element getSingleElementSafe(NodeList nl) throws Exception {
-		if (null == nl || nl.getLength() == 0)
-			return null;
-		
-		if (nl.getLength() > 1)
-			throw new Exception("Too many elements has been find by this tag. Consider to use getElementsByTagName instead");
-		
-		Node node = nl.item(0);
-		if (!(node instanceof Element))
-			throw new Exception("The node is not element");
-		
-		return (Element) node;
-	}
-
-	protected Element getElementByTagName(Element element, String tagName) throws Exception {
-		return getSingleElement(element.getElementsByTagName(tagName));
-	}
-	
-	protected Element getElementByTagName(Document doc, String tagName) throws Exception {
-		return getSingleElement(doc.getElementsByTagName(tagName));
-	}	
-	
-	protected Element getElementByTagNameSafe(Element element, String tagName) throws Exception {
-		return getSingleElementSafe(element.getElementsByTagName(tagName));
-	}
-	
-	protected String getElementTextByTagName(Element element, String tagName) {
-		try {
-			return getElementByTagName(element, tagName).getTextContent();
-		} catch (DOMException e) {
-			e.printStackTrace();
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		
-		return null;
-	}*/
 }
