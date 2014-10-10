@@ -10,7 +10,6 @@ public class App {
 	//private static final String REPO_URI = "http://researchdata.ands.org.au/registry/services/oai";
 	private static final String REPO_URI = "http://cds.cern.ch/oai2d.py/";
 	private static final String FOLDER_XML = "cern";
-	private static final String INDEX_NAME = "cern";
 
 	public static void main(String[] args) {
 		
@@ -34,17 +33,7 @@ public class App {
 			return;
 		}
 		
-		String indexName = INDEX_NAME;
-		if (args.length > 1)
-			indexName = args[1];
-		
-		if (indexName.isEmpty()) {
-			System.out.print( "Error: No index has been specyfed. Please provide index name." );
-			return;
-		}
-
-
-		Harvester harvester = new Harvester(repoUri, folderXml, indexName);
+		Harvester harvester = new Harvester(repoUri, folderXml);
 		
 		List<MetadataFormat> formats = harvester.listMetadataFormats();
 		System.out.println("Supported metadata formats:");
@@ -53,7 +42,7 @@ public class App {
 		}
 		
 		try {
-			harvester.harvest(MetadataPrefix.marcxml);
+			harvester.harvest(MetadataPrefix.oai_dc);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}

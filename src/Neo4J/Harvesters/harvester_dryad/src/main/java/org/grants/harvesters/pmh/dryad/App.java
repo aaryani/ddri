@@ -9,8 +9,7 @@ import org.grants.harvesters.pmh.MetadataPrefix;
 public class App {
 	private static final String REPO_URI = "http://www.datadryad.org/oai/request";
 	private static final String FOLDER_XML = "dryad";
-	private static final String INDEX_NAME = "dryad";
-
+	
 	public static void main(String[] args) {
 		
 		// init server uri
@@ -32,18 +31,8 @@ public class App {
 			System.out.print( "Error: No path to xml folder has been specyfied. Please provide xml folder path." );
 			return;
 		}
-		
-		String indexName = INDEX_NAME;
-		if (args.length > 1)
-			indexName = args[1];
-		
-		if (indexName.isEmpty()) {
-			System.out.print( "Error: No index has been specyfed. Please provide index name." );
-			return;
-		}
-
-
-		Harvester harvester = new Harvester(repoUri, folderXml, indexName);
+	
+		Harvester harvester = new Harvester(repoUri, folderXml);
 		
 		List<MetadataFormat> formats = harvester.listMetadataFormats();
 		System.out.println("Supported metadata formats:");

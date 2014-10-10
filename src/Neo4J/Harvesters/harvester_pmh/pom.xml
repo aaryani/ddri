@@ -2,16 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.grants.harvesters</groupId>
   <artifactId>harvester_pmh</artifactId>
-  <version>1.0.1</version>
+  <version>1.0.3</version>
   <name>OAI-PMH Interface implementation </name>
- 
-  <dependencies>
-    <dependency>
-      <groupId>commons-io</groupId>
-      <artifactId>commons-io</artifactId>
-      <version>1.3.2</version>
-    </dependency>
-   </dependencies>
-
   <description>Base library to harvest information from OAI-PMH site</description>
 </project>

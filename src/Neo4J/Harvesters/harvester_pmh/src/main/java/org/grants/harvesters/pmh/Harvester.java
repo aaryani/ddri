@@ -28,7 +28,6 @@ import javax.xml.transform.TransformerFactoryConfigurationError;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
-import org.apache.commons.io.FileUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -47,7 +46,8 @@ public class Harvester {
 	
 	protected final String repoUrl;
 	protected final String folderXml;
-	protected final String indexName;
+
+	protected String indexName;
 	protected Map<String, Record> records;
 	protected DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
 	
@@ -60,10 +60,9 @@ public class Harvester {
 	private String granularity;
 	private String adminEmail;
 	
-	public Harvester( final String repoUrl, final String folderXml, final String indexName ) {
+	public Harvester( final String repoUrl, final String folderXml ) {
 		this.repoUrl = repoUrl;
 		this.folderXml = folderXml;
-		this.indexName = indexName;
 		
 		new File(this.folderXml).mkdirs();
 	}
@@ -308,7 +307,11 @@ public class Harvester {
 		Transformer transformer = TransformerFactory.newInstance().newTransformer();
 			
 		List<Element> records = getChildElementsByTagName(getChildElementByTagName(root, "ListRecords"), "record");
-		if (null != records) 
+		if (null != records) {
+			
+			new File(setPath = getSetPath(setName)).mkdirs();
+			initIndex(setName);	
+			
 			for (Element record : records) {				
 				Element header = getChildElementByTagName(record, "header");
 				String identifier = getChildElementTextByTagName(header, "identifier");
@@ -321,9 +324,6 @@ public class Harvester {
 					String keyName = URLEncoder.encode(identifier, "UTF-8");
 					String fineName = getFileNme(keyName);
 					
-					if (null == setPath)
-						new File(setPath = getSetPath(setName)).mkdirs();
-					
 					String filePath = setPath + "/" + fineName;
 					
 					if (rec != null) {
@@ -331,8 +331,7 @@ public class Harvester {
 						if (null == setCachePath) 
 							new File(setCachePath = getCacheSetPath(setName)).mkdirs();
 												
-						FileUtils.copyFile(new File(filePath), 
-										   new File(setCachePath + "/" + getCacheFileName(keyName, datestamp)), true);
+						new File(filePath).renameTo(new File(setCachePath + "/" + getCacheFileName(keyName, datestamp)));
 					} else {
 						rec = new Record();
 						rec.set = set;
@@ -346,7 +345,10 @@ public class Harvester {
 					
 					transformer.transform(new DOMSource(record), new StreamResult(filePath));						
 				}
-			}			
+			}	
+		
+			saveIndex();
+		}
 			
 		NodeList nl = doc.getElementsByTagName("resumptionToken");
 		if (nl != null && nl.getLength() > 0)
@@ -366,7 +368,7 @@ public class Harvester {
 		return null;
 	}		
 	
-	protected String getIndexPath() {
+	protected String getIndexPath(final String indexName) {
 		return folderXml + "/" + indexName + ".idx";
 	}
 	
@@ -402,56 +404,62 @@ public class Harvester {
 		return folderXml + "/cache/" + record.getFileName(true);
 	}*/
 	
-	protected void initIndex() {
-		records = new HashMap<String, Record>();
-		
-		try {
-			FileInputStream f = new FileInputStream(getIndexPath());
-			ObjectInputStream in = new ObjectInputStream(f);
-			Record r = null;
+	protected void initIndex(final String indexName) {
+		if (this.indexName == null || !this.indexName.equals(indexName)) {		
+			records = new HashMap<String, Record>();
+			
 			try {
-				do {
-					r = (Record) in.readObject();
-					if (r != null)
-						addRecord(r);
-				} while (r != null);
-			} finally {
-				in.close();
-				f.close();
-			}
-		} catch (FileNotFoundException e) {
-			System.out.println("Index file do not exists, new index has been created");
-		} catch (IOException e) {
-		} catch (ClassNotFoundException e) {
-			System.out.println("Invalid index format");
-			e.printStackTrace();
-		}		
+				FileInputStream f = new FileInputStream(getIndexPath(indexName));
+				ObjectInputStream in = new ObjectInputStream(f);
+				Record r = null;
+				try {
+					do {
+						r = (Record) in.readObject();
+						if (r != null)
+							addRecord(r);
+					} while (r != null);
+				} finally {
+					in.close();
+					f.close();
+				}		
+				
+			} catch (FileNotFoundException e) {
+				System.out.println("Index file do not exists, new index has been created");
+			} catch (IOException e) {
+			} catch (ClassNotFoundException e) {
+				System.out.println("Invalid index format");
+				e.printStackTrace();
+			}	
+			
+			this.indexName = indexName;
+		}
 	}
 	
 	protected void saveIndex() {
-		
-		try {
-			FileOutputStream f = new FileOutputStream(getIndexPath());
-			ObjectOutputStream out = new ObjectOutputStream(f);
+		if (null != this.indexName) {
 			try {
-				for (Record record : records.values()) {
-				    out.writeObject(record);
-				}
+				FileOutputStream f = new FileOutputStream(getIndexPath(this.indexName));
+				ObjectOutputStream out = new ObjectOutputStream(f);
+				try {
+					for (Record record : records.values()) {
+					    out.writeObject(record);
+					}
+				} finally {
+					out.close();
+					f.close();
+				}				
+			} catch (FileNotFoundException e) {
+				e.printStackTrace();
+			} catch (IOException e) {
+				e.printStackTrace();
 			} finally {
-				out.close();
-				f.close();
+				this.indexName = null;
 			}
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}	
+		}
 	}
 	
 	public void harvest(MetadataPrefix prefix) throws Exception {
 		System.out.println("Initializing index...");
-		
-		initIndex();
 		
 		System.out.println("Identifying...");
 	
@@ -478,7 +486,6 @@ public class Harvester {
 		    		resumptionToken = downloadRecords(set, prefix, resumptionToken);		
 		    		
 		    		nError = 0;		    		
-		    		saveIndex();
 		    	}
 		    	catch (Exception e) {
 		    		if (++nError >= 10) {
@@ -492,7 +499,7 @@ public class Harvester {
 		    		}
 		    	}
 		    	
-		    } while (null != resumptionToken && !resumptionToken.isEmpty());		    
+		    } while (nError > 0 || null != resumptionToken && !resumptionToken.isEmpty());		    
 		}
 	}
 }
