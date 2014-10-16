@@ -1,32 +1,18 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.grants.importers</groupId>
-  <artifactId>import_mets</artifactId>
+  <artifactId>import_dryad</artifactId>
   <version>1.0.0</version>
-  <name>OAI:PMH mets Importer</name>
-  <description>OAI:PMH mets xml format data importer into neo4j </description>
-
-  <properties>
+  <name>Import Dryad (METS) xml files</name>
+  
+   <properties>
     <jdk.version>1.7</jdk.version>
     <class.path>jars/</class.path>
   </properties>
   
   <build>
 	<plugins>
-	  <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>jaxb2-maven-plugin</artifactId>
-        <version>1.6</version>
-        <executions>
-          <execution>
-            <id>xjc</id>
-            <goals>
-              <goal>xjc</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-      
+	  
 	  <plugin>
 		<groupId>org.apache.maven.plugins</groupId>
 		<artifactId>maven-compiler-plugin</artifactId>
@@ -45,7 +31,7 @@
 	      <archive>
 		    <manifest>
 		      <addClasspath>true</addClasspath>
-		      <mainClass>org.grants.importers.mets.App</mainClass>
+		      <mainClass>org.grants.importers.mets.dryad.App</mainClass>
 		      <classpathPrefix>${class.path}</classpathPrefix>
 		    </manifest>
 	      </archive>
@@ -64,7 +50,6 @@
 			  <goal>copy-dependencies</goal>
 			</goals>
 			<configuration>
-			  <includeGroupIds>javax.xml.bind,org.neo4j</includeGroupIds>
 			  <outputDirectory>${project.build.directory}/${class.path}</outputDirectory>
 			</configuration>
 		  </execution>
@@ -80,16 +65,11 @@
     </repository>
   </repositories>
 
-  <dependencies>
+   <dependencies>
     <dependency>
-	  <groupId>javax.xml.bind</groupId>
-	  <artifactId>jaxb-api</artifactId>
-	  <version>2.2.11</version>
-    </dependency>
-    <dependency>
-      <groupId>org.neo4j</groupId>
-      <artifactId>neo4j-rest-graphdb</artifactId>
-      <version>2.0.2-SNAPSHOT</version>
+	  <groupId>org.grants.importers</groupId>
+	  <artifactId>import_mets</artifactId>
+	  <version>1.0.0</version>
     </dependency>
   </dependencies>
   

@@ -1,20 +1,20 @@
 package org.vsc.harvesters.rda;
 
 public class App {
-	private static final String NEO4J_URL = "http://localhost:7474/db/data/";
+	private static final String JSON_FOLDER_URI = "rda";
 
 	public static void main(String[] args) {
 		
-		String neo4jUrl = NEO4J_URL;
+		String folderJson = JSON_FOLDER_URI;
 		if (args.length > 0)
-			neo4jUrl = args[1];
+			folderJson = args[0];
 		
-		if (neo4jUrl.isEmpty()) {
-			System.out.print( "Error: No Neo4J Server URL has been specyfied." );
+		if (folderJson.isEmpty()) {
+			System.out.print( "Error: No JSON folder has been specyfied." );
 			return;
 		}
 	
-		Harvester harvester = new Harvester(neo4jUrl);
+		Harvester harvester = new Harvester(folderJson);
 		
 		try {
 			harvester.harvest();

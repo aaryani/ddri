@@ -9,6 +9,7 @@ public class RecordSet {
 	public static final String FIELD_NUM_FOUND = "numFound";
 	public static final String FIELD_START = "start";
 	public static final String FIELD_DOCS = "docs";
+	public static final String FIELD_ID = "id";
 	
 	public Set<String> recordIds = new HashSet<String>();
 	public Integer from;
@@ -27,7 +28,7 @@ public class RecordSet {
 			recordSet.processed = docs.size();
 			
 			for (Map<String, Object> doc : docs) {
-				String id = (String) doc.get(Record.FIELD_ID);
+				String id = (String) doc.get(FIELD_ID);
 				if (null != id && !id.isEmpty())
 					recordSet.recordIds.add(id);
 			}

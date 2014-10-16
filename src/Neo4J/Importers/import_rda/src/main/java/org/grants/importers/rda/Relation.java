@@ -1,9 +1,9 @@
-package org.vsc.harvesters.rda;
+package org.grants.importers.rda;
 
 import java.util.HashMap;
 import java.util.Map;
 
-public class Relationship {
+public class Relation {
 	
 	public static final String FIELD_REGISTRY_OBJECT_ID = "registry_object_id";
 	public static final String FIELD_CLASS = "class";
@@ -30,14 +30,14 @@ public class Relationship {
 		}
 	}
 	
-	public static Relationship fromJson(Map<String, Object> json, final String relationshipType) throws Exception {
+	public static Relation fromJson(Map<String, Object> json, final String relationshipType) throws Exception {
 		String relatedObjectId = (String) json.get(FIELD_REGISTRY_OBJECT_ID);
 		if (null != relatedObjectId && !relatedObjectId.isEmpty()) {
-			Relationship relationship = new Relationship();
+			Relation relationship = new Relation();
 			
 			relationship.relatedObjectId = relatedObjectId;
 			relationship.relationsipType = (String) json.get(FIELD_RELATIONSHIP_TYPE);
-			if (null == relationship.relationsipType || !relationship.relationsipType.isEmpty())
+			if (null == relationship.relationsipType || relationship.relationsipType.isEmpty())
 				relationship.relationsipType = relationshipType;
 			
 			relationship.addData(PROPERTY_RDA_CLASS, (String) json.get(FIELD_CLASS));
