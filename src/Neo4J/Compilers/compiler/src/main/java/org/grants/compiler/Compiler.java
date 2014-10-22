@@ -1,5 +1,6 @@
 package org.grants.compiler;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -9,7 +10,6 @@ import org.grants.crossref.Author;
 import org.grants.crossref.CrossRef;
 import org.grants.crossref.Item;
 import org.neo4j.graphdb.Direction;
-import org.neo4j.graphdb.DynamicLabel;
 import org.neo4j.graphdb.DynamicRelationshipType;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
@@ -26,24 +26,30 @@ public class Compiler {
 	private static final String NEO4J1_URI = "http://localhost:7474/db/data/";
 	private static final String NEO4J2_URI = "http://localhost:7476/db/data/";
 	
+	/*
 	private static final String LABEL_RECORD = "Record";
 	private static final String LABEL_PUBLICATION = "Publication";
 	private static final String LABEL_RESEARCHER = "Researcher";
+	private static final String LABEL_DATASET = "Dataset";
 	
 	private static final String LABEL_RDA = "RDA";
 	
 	private static final String LABEL_DRYAD = "Dryad";
 	private static final String LABEL_DRYAD_PUBLICATION = LABEL_DRYAD + "_" + LABEL_PUBLICATION;
+	private static final String LABEL_DRYAD_DATASET = LABEL_DRYAD + "_" + LABEL_DATASET;
 	
 	private static final String LABEL_CROSSREF = "CrossRef";
 	private static final String LABEL_CROSSREF_PUBLICATION = LABEL_CROSSREF + "_" + LABEL_PUBLICATION;
-	private static final String LABEL_CROSSREF_RESEARCHER = LABEL_CROSSREF + "_" + LABEL_RESEARCHER;
+	private static final String LABEL_CROSSREF_RESEARCHER = LABEL_CROSSREF + "_" + LABEL_RESEARCHER;*/
 	
-	private static final String RELATIONSHIP_AUTHOR = "author";
+/*	private static final String RELATIONSHIP_AUTHOR = "author";
 	private static final String RELATIONSHIP_EDITOR = "editor";
 	private static final String RELATIONSHIP_KNOWN_AS = "knownAs";
-		
+	private static final String RELATIONSHIP_CONSTITUENT = "constituent";
+*/
+	
 	private static final String PROPERTY_KEY = "key";
+	//private static final String PROPERTY_RDA_KEY = "key";
 	private static final String PROPERTY_OAI = "oai";
 	private static final String PROPERTY_RDA_ID = "rda_id";
 	private static final String PROPERTY_NODE_TYPE = "node_type";
@@ -73,18 +79,47 @@ public class Compiler {
 	private static final String PROPERTY_GIVEN_NAME = "given_name";
 	private static final String PROPERTY_FULL_NAME = "full_name";
 	private static final String PROPERTY_ORCID = "orcid";
-
+	private static final String PROPERTY_RDA_URL = "rda_url";
+	private static final String PROPERTY_RDA_SLUG = "rda_slug";
+		
 	private static final String PART_DOI = "doi:";
 	
+	private static final String PARTY_TYPE_PERSON = "person";
+	private static final String PARTY_TYPE_PUBLISHER = "publisher";
+	private static final String PARTY_TYPE_GROUP = "group";
+	private static final String PARTY_TYPE_ADMINISTRATIVE_POSITION = "administrativePosition";
+	
+	private static final String ACTIVITY_TYPE_PROJECT = "project";
+	private static final String ACTIVITY_TYPE_PROGRAM = "program";
+	private static final String ACTIVITY_TYPE_AWARD = "award";
+	private static final String ACTIVITY_TYPE_DATASET = "dataset";
+	
+	private static final String COLLECTION_TYPE_DATASET = "dataset";
+	private static final String COLLECTION_TYPE_NON_GEOGRAPHIC_DATASET = "nonGeographicDataset";
+	private static final String COLLECTION_TYPE_RESEARCH_DATASET = "researchDataSet";
+	//private static final String COLLECTION_TYPE_COLLECTION = "collection";
+	//private static final String COLLECTION_TYPE_DATA_COLLECTION = "Data Collection";
+	private static final String COLLECTION_TYPE_REPOSITORY = "repository";
+	private static final String COLLECTION_TYPE_REGISTRY = "registry";
+	private static final String COLLECTION_TYPE_SOFTWARE = "software";
+	private static final String COLLECTION_TYPE_CATALOGUE_OR_INDEX = "catalogueOrIndex";
+	//private static final String COLLECTION_TYPE_SERIES = "series";
+	//private static final String COLLECTION_TYPE_MODEL = "model";
+	
+	
+	/*
 	private static Label labelPublication = DynamicLabel.label(LABEL_PUBLICATION);
 	private static Label labelResearcher = DynamicLabel.label(LABEL_RESEARCHER);
+	private static Label labelDataset = DynamicLabel.label(LABEL_DATASET);
 	private static Label labelRDA = DynamicLabel.label(LABEL_RDA);
 	private static Label labelDryad = DynamicLabel.label(LABEL_DRYAD);
-	private static Label labelCrossRef = DynamicLabel.label(LABEL_CROSSREF);
+	private static Label labelCrossRef = DynamicLabel.label(LABEL_CROSSREF);*/
 
-	private static RelationshipType relAuthor = DynamicRelationshipType.withName(RELATIONSHIP_AUTHOR);
+	/*private static RelationshipType relAuthor = DynamicRelationshipType.withName(RELATIONSHIP_AUTHOR);
 	private static RelationshipType relEditor = DynamicRelationshipType.withName(RELATIONSHIP_EDITOR);
 	private static RelationshipType relKnownAs = DynamicRelationshipType.withName(RELATIONSHIP_KNOWN_AS);
+	private static RelationshipType relConstituent =  DynamicRelationshipType.withName(RELATIONSHIP_CONSTITUENT);*/
+	
 	
 	private RestAPI graphDb1;
 	private RestAPI graphDb2;
@@ -92,10 +127,19 @@ public class Compiler {
 	private RestCypherQueryEngine engine1;  
 	private RestCypherQueryEngine engine2;  
 	
-	private RestIndex<Node> indexDryadPublication;
-	private RestIndex<Node> indexCrossrefPublication;
-	private RestIndex<Node> indexCrossrefResearcher;
+	private Map<String, RestIndex<Node>> mapIndexes = new HashMap<String, RestIndex<Node>>();
 	
+	private static enum Labels implements Label {
+	    RDA, Dryad, CrossRef, Collection, Service, Party, Activity, Publication, 
+	    Researcher, Dataset, Record, Institution, Grant, Award, Repository, 
+	    Registry, CatalogOrIndex, AdministrativePosition
+    };
+    
+    private static enum Relationhips implements RelationshipType {
+    	author, editor, knownAs, constituent
+    };
+    
+   
 	CrossRef crossref = new CrossRef();
 	
 	public Compiler() {
@@ -108,19 +152,41 @@ public class Compiler {
 		engine2 = new RestCypherQueryEngine(graphDb2);  
 		
 		// create constraints
-		engine2.query("CREATE CONSTRAINT ON (n:" + LABEL_DRYAD_PUBLICATION + ") ASSERT n." + PROPERTY_KEY + " IS UNIQUE", Collections.<String, Object> emptyMap());
-		engine2.query("CREATE CONSTRAINT ON (n:" + LABEL_CROSSREF_PUBLICATION + ") ASSERT n." + PROPERTY_KEY + " IS UNIQUE", Collections.<String, Object> emptyMap());
-		engine2.query("CREATE CONSTRAINT ON (n:" + LABEL_CROSSREF_RESEARCHER + ") ASSERT n." + PROPERTY_KEY + " IS UNIQUE", Collections.<String, Object> emptyMap());
-
+		createConstraint(Labels.Dryad, Labels.Publication);
+		createConstraint(Labels.Dryad, Labels.Dataset);
+		createConstraint(Labels.CrossRef, Labels.Publication);
+		createConstraint(Labels.CrossRef, Labels.Researcher);
+		createConstraint(Labels.RDA, Labels.Researcher);
+		createConstraint(Labels.RDA, Labels.Institution);
+		createConstraint(Labels.RDA, Labels.Grant);
+		createConstraint(Labels.RDA, Labels.Award);
+		createConstraint(Labels.RDA, Labels.Dataset);
+		createConstraint(Labels.RDA, Labels.Collection);
+		createConstraint(Labels.RDA, Labels.Repository);
+		createConstraint(Labels.RDA, Labels.Registry);
+		createConstraint(Labels.RDA, Labels.CatalogOrIndex);
+		createConstraint(Labels.RDA, Labels.Collection);
+		createConstraint(Labels.RDA, Labels.Service);
+		createConstraint(Labels.RDA, Labels.AdministrativePosition);
+		
 		// get indexes
-		indexDryadPublication = graphDb2.index().forNodes(LABEL_DRYAD_PUBLICATION);
+	/*	indexDryadPublication = graphDb2.index().forNodes(LABEL_DRYAD_PUBLICATION);
+		indexDryadDataset = graphDb2.index().forNodes(LABEL_DRYAD_DATASET);
 		indexCrossrefPublication = graphDb2.index().forNodes(LABEL_CROSSREF_PUBLICATION);
-		indexCrossrefResearcher = graphDb2.index().forNodes(LABEL_CROSSREF_RESEARCHER);
+		indexCrossrefResearcher = graphDb2.index().forNodes(LABEL_CROSSREF_RESEARCHER);*/
+	}
+	
+	public void process() {
+		//importDryadDataset();
+		//importDryadPublications();
+		//importDryadRelations();		
+		
+		//importRDARecords();
+		importWebResearchers();
 	}
 	
 	@SuppressWarnings("unchecked")
-	public void process() {
-		
+	private void importDryadPublications() {
 		QueryResult<Map<String, Object>> articles = engine1.query("MATCH (n:Dryad:Record) WHERE n.genre='Article' RETURN n", null);
 		for (Map<String, Object> row : articles) {
 			RestNode nodeRecord = (RestNode) row.get("n");
@@ -140,8 +206,7 @@ public class Compiler {
 			
 			System.out.println(key);
 			
-			RestNode nodePublication = createNode(graphDb2, indexDryadPublication, PROPERTY_KEY, key, 
-					labelPublication, labelDryad, props);
+			RestNode nodePublication = createNode(graphDb2, Labels.Dryad, Labels.Publication, PROPERTY_KEY, key, props);
 			if (null == nodePublication) {
 				System.out.println("Unable to create publication");
 				break;
@@ -152,24 +217,340 @@ public class Compiler {
 				if (referencedBy instanceof String) {
 					RestNode node = createCrossRefPublication((String) referencedBy);
 					if (null != node)
-						createUniqueRelationship(graphDb2, nodePublication, node, relKnownAs, Direction.BOTH, null);
+						createUniqueRelationship(graphDb2, nodePublication, node, Relationhips.knownAs, Direction.BOTH, null);
 				} else if (referencedBy instanceof String[]) {
 					for (String doi :(String[]) referencedBy) {
 						RestNode node = createCrossRefPublication((String) doi);
 						if (null != node)
-							createUniqueRelationship(graphDb2, nodePublication, node, relKnownAs, Direction.BOTH, null);
+							createUniqueRelationship(graphDb2, nodePublication, node, Relationhips.knownAs, Direction.BOTH, null);
 					}
 				} else if (referencedBy instanceof List<?>) {
 					for (String doi :(List<String>) referencedBy) {
 						RestNode node = createCrossRefPublication((String) doi);
 						if (null != node)
-							createUniqueRelationship(graphDb2, nodePublication, node, relKnownAs, Direction.BOTH, null);
+							createUniqueRelationship(graphDb2, nodePublication, node, Relationhips.knownAs, Direction.BOTH, null);
 					}
 				}
 					
 			}
 		}
 	}
+	
+	private void importDryadDataset() {
+		// SKIP {skip_number} LIMIT {limit_number}
+		QueryResult<Map<String, Object>> datasets = engine1.query("MATCH (n:Dryad:Record) WHERE n.genre IN ['Dataset', 'dataset']  RETURN n", null);
+		for (Map<String, Object> row : datasets) {
+			RestNode nodeRecord = (RestNode) row.get("n");
+		
+			if (null == nodeRecord) {
+				System.out.println("Invalid node");
+				break;
+			}
+			
+			Map<String, Object> props = getProperties(nodeRecord);
+			
+			String key = (String) props.get(PROPERTY_OAI);
+			if (null == key || key.isEmpty()) {
+				System.out.println("Invalid node key");
+				break;
+			}
+			
+			System.out.println(key);
+			
+			createNode(graphDb2, Labels.Dryad, Labels.Dataset, PROPERTY_KEY, key, props);
+		}
+	}
+	
+	@SuppressWarnings("unchecked")
+	private void importDryadRelations() {
+		QueryResult<Map<String, Object>> publications = engine2.query("MATCH (n:Dryad:Publication) WHERE has (n.constituent) RETURN ID(n) as id, n.constituent as doi", null);
+		for (Map<String, Object> row : publications) {
+			
+			int id = (Integer) row.get("id");
+			Object doi = row.get("doi");
+			
+			if (doi != null) {
+				RestNode nodePublication = graphDb2.getNodeById(id);
+				if (doi instanceof String) {
+					 List<RestNode> nodesDatasets = findDryadDatasetByDoi((String) doi);
+					 if (null != nodesDatasets) 
+						 for (RestNode nodeDataset : nodesDatasets) 
+							 createUniqueRelationship(graphDb2, nodePublication, nodeDataset, Relationhips.constituent, Direction.OUTGOING, null);
+				} else 
+					for (String d : (List<String>) doi) {
+						List<RestNode> nodesDatasets = findDryadDatasetByDoi(d);
+						if (null != nodesDatasets) 
+							for (RestNode nodeDataset : nodesDatasets) 
+								createUniqueRelationship(graphDb2, nodePublication, nodeDataset, Relationhips.constituent, Direction.OUTGOING, null);
+		
+					}
+			}
+		}
+		
+		QueryResult<Map<String, Object>> datasets = engine2.query("MATCH (n:Dryad:Dataset) WHERE has (n.host) RETURN ID(n) as id, n.host as doi", null);
+		for (Map<String, Object> row : datasets) {
+			
+			int id = (Integer) row.get("id");
+			Object doi = row.get("doi");
+			
+			if (doi != null) {
+				RestNode nodeDataset = graphDb2.getNodeById(id);
+				if (doi instanceof String) {
+					 List<RestNode> nodesPublications = findDryadPublicationByDoi((String) doi);
+					 if (null != nodesPublications) 
+						 for (RestNode nodePublication : nodesPublications) 
+							 createUniqueRelationship(graphDb2, nodePublication, nodeDataset, Relationhips.constituent, Direction.OUTGOING, null);
+				} else 
+					for (String d : (List<String>) doi) {
+						 List<RestNode> nodesPublications = findDryadPublicationByDoi(d);
+						 if (null != nodesPublications) 
+							 for (RestNode nodePublication : nodesPublications) 
+								 createUniqueRelationship(graphDb2, nodePublication, nodeDataset, Relationhips.constituent, Direction.OUTGOING, null);	
+					}
+			}
+		}
+	}
+	
+	private void importRDARecords() {
+		List<Relation> relations = new ArrayList<Relation>();
+		
+		QueryResult<Map<String, Object>> articles = engine1.query("MATCH (n:RDA:Record) RETURN n", null);
+		for (Map<String, Object> row : articles) {
+			RestNode nodeRecord = (RestNode) row.get("n");
+		
+			if (null == nodeRecord) {
+				System.out.println("Invalid node");
+				return;
+			}
+			
+			Map<String, Object> props = getProperties(nodeRecord);			
+			String rdaId = (String) props.get(PROPERTY_RDA_ID);		
+			String url = (String) props.get(PROPERTY_RDA_URL);		
+			String slug = (String) props.get(PROPERTY_RDA_SLUG);	
+			if (null == rdaId || rdaId.isEmpty()) {
+				System.out.println("Invalid node key");
+				return;
+			}
+			
+			if (null == slug || slug.isEmpty()) {
+				System.out.println("The node does not contains slug, ignoring");
+				continue;
+			}
+			
+			String rdaKey = "oai:ands.org.au::" + rdaId;
+			System.out.println(rdaKey);
+			
+			List<RestNode> nodes = findRDANodeByRdaKey(rdaKey);
+			if (null == nodes || nodes.size() == 0) {
+				System.out.println("Unable to find any RDA node by rda_key");
+				continue;
+			}
+			if (nodes.size() != 1) {
+				System.out.println("Too many nodes has been find by rda_key");
+				return;
+			}
+				 
+			RestNode nodeRda = nodes.get(0);
+			props = getProperties(nodeRda);
+			
+			props.put(PROPERTY_RDA_SLUG, slug);
+			props.put(PROPERTY_RDA_ID, rdaId);
+			
+			String type = (String) props.get(PROPERTY_TYPE);
+			if (null == type || type.isEmpty()) {
+				System.out.println("Unknown RDA node type");
+				continue;
+			}
+			
+			Label labelType;
+			
+			// establish the record type
+			if (nodeRda.hasLabel(Labels.Party)) {
+				// Party
+				if (type.equalsIgnoreCase(PARTY_TYPE_PERSON) || type.equalsIgnoreCase(PARTY_TYPE_PUBLISHER)) {
+					labelType = Labels.Researcher;
+				} else if (type.equalsIgnoreCase(PARTY_TYPE_GROUP)) {
+					labelType = Labels.Institution;
+				} else if (type.equalsIgnoreCase(PARTY_TYPE_ADMINISTRATIVE_POSITION)) {
+					labelType = Labels.AdministrativePosition;
+				} else {
+					System.out.println("Unknown RDA Node Party type: " + type);
+					return;
+				}					 
+			} else if (nodeRda.hasLabel(Labels.Activity)) {
+				/*if (props.containsKey(PROPERTY_IDENTIFIER_NHMRC) || props.containsKey(PROPERTY_IDENTIFIER_ARC)) 
+					labelType = Labels.Grant;
+				else {
+					String purl = (String) props.get(PROPERTY_IDENTIFIER_PURL);
+					if (null != purl && (purl.contains("/nhmrc/") || purl.contains("/arc/")))
+						labelType = Labels.Grant;
+					else
+						labelType = Labels.Activity;
+				}*/
+				
+				
+				if (type.equalsIgnoreCase(ACTIVITY_TYPE_PROJECT) || type.equalsIgnoreCase(ACTIVITY_TYPE_PROGRAM)) {
+					labelType = Labels.Grant;
+				} else if (type.equalsIgnoreCase(ACTIVITY_TYPE_AWARD)) {
+					labelType = Labels.Award;
+				} else if (type.equalsIgnoreCase(ACTIVITY_TYPE_DATASET)) {
+					labelType = Labels.Dataset;
+				} else {
+					System.out.println("Unknown RDA Node Activity type: " + type);
+					return;
+				}		
+			} else if (nodeRda.hasLabel(Labels.Collection)) {
+				if (type.equalsIgnoreCase(COLLECTION_TYPE_DATASET) || 
+						type.equalsIgnoreCase(COLLECTION_TYPE_NON_GEOGRAPHIC_DATASET) ||
+						type.equalsIgnoreCase(COLLECTION_TYPE_RESEARCH_DATASET)) {
+					labelType = Labels.Dataset;
+				} else if (type.equalsIgnoreCase(COLLECTION_TYPE_REPOSITORY)) {
+					labelType = Labels.Repository;
+				} else if (type.equalsIgnoreCase(COLLECTION_TYPE_REGISTRY)) {
+					labelType = Labels.Registry;
+				} else if (type.equalsIgnoreCase(COLLECTION_TYPE_CATALOGUE_OR_INDEX)) {
+					labelType = Labels.CatalogOrIndex;
+				} else {
+					labelType = Labels.Collection;
+				} 	
+			} else if (nodeRda.hasLabel(Labels.Service)) {
+				labelType = Labels.Service;
+			} else {
+				System.out.println("Unknown RDA Node label");
+				return;
+			}
+			
+			RestNode node =  createNode(graphDb2, Labels.RDA, labelType, PROPERTY_KEY, url, props); 
+			
+			
+			Iterable<Relationship> rels = nodeRecord.getRelationships();
+			for (Relationship rel : rels) {
+				Relation r = new Relation();
+				
+				r.keyFrom = (String) ((RestNode) rel.getStartNode()).getProperty(PROPERTY_RDA_URL);
+				r.keyTo = (String) ((RestNode) rel.getEndNode()).getProperty(PROPERTY_RDA_URL);
+				r.relationName = rel.getType().name().trim();
+				
+				if (r.relationName.contains(" "))
+					r.relationName = "relatedTo";
+				
+				relations.add(r);		
+			}
+		}
+		
+		for (Relation r : relations) {
+			
+			System.out.println("(" + r.keyFrom + ")-[" + r.relationName + "]->(" + r.keyTo + ")");
+			
+			List<RestNode> nodesFrom = findRDANodeByKey(r.keyFrom);
+			if (null == nodesFrom || nodesFrom.size() == 0) {
+				System.out.println("Unable to find any RDA node by the  key");
+				continue;
+			}
+			if (nodesFrom.size() > 1) {
+				System.out.println("Too many RDA node has been found by the key");
+				return;
+			}
+			
+			List<RestNode> nodesTo = findRDANodeByKey(r.keyTo);
+			if (null == nodesTo || nodesTo.size() == 0) {
+				System.out.println("Unable to find any RDA node by the  key");
+				continue;
+			}
+			if (nodesTo.size() > 1) {
+				System.out.println("Too many RDA node has been found by the key");
+				return;
+			}
+			
+			createUniqueRelationship(graphDb2, nodesFrom.get(0), nodesTo.get(0), 
+					DynamicRelationshipType.withName(r.relationName), Direction.OUTGOING, null);	
+		}
+	}
+	
+	private void importWebResearchers() {
+		
+	}
+	
+	private List<RestNode> findDryadDatasetByDoi(final String doi) {
+		List<RestNode> result = null;
+		
+		Map<String, Object> pars = new HashMap<String, Object>();
+		pars.put("doi", doi);
+		
+		QueryResult<Map<String, Object>> nodes = engine2.query("MATCH (n:Dryad:Dataset) WHERE has(n.doi) and any (m in n.doi WHERE m = {doi}) RETURN n", pars);
+		for (Map<String, Object> row : nodes) {
+			RestNode node = (RestNode) row.get("n");
+			if (null != node) {
+				if (null == result)
+					result = new ArrayList<RestNode>();
+				
+				result.add(node);
+			}
+		}
+		
+		return result;
+	}
+	
+	private List<RestNode> findRDANodeByRdaKey(final String rdaKey) {
+		List<RestNode> result = null;
+		
+		Map<String, Object> pars = new HashMap<String, Object>();
+		pars.put("rda_key", rdaKey);
+		
+		QueryResult<Map<String, Object>> nodes = engine1.query("MATCH (n:RDA) WHERE has(n.rda_key) and n.rda_key={rda_key} RETURN n", pars);
+		for (Map<String, Object> row : nodes) {
+			RestNode node = (RestNode) row.get("n");
+			if (null != node) {
+				if (null == result)
+					result = new ArrayList<RestNode>();
+				
+				result.add(node);
+			}
+		}
+		
+		return result;
+	}
+	
+	private List<RestNode> findRDANodeByKey(final String key) {
+		List<RestNode> result = null;
+		
+		Map<String, Object> pars = new HashMap<String, Object>();
+		pars.put("key", key);
+		
+		QueryResult<Map<String, Object>> nodes = engine2.query("MATCH (n:RDA) WHERE has(n.key) and n.key={key} RETURN n", pars);
+		for (Map<String, Object> row : nodes) {
+			RestNode node = (RestNode) row.get("n");
+			if (null != node) {
+				if (null == result)
+					result = new ArrayList<RestNode>();
+				
+				result.add(node);
+			}
+		}
+		
+		return result;
+	}
+	
+	private List<RestNode> findDryadPublicationByDoi(final String doi) {
+		List<RestNode> result = null;
+		
+		Map<String, Object> pars = new HashMap<String, Object>();
+		pars.put("doi", doi);
+		
+		QueryResult<Map<String, Object>> nodes = engine2.query("MATCH (n:Dryad:Publication) WHERE has(n.doi) and any (m in n.doi WHERE m = {doi}) RETURN n", pars);
+		for (Map<String, Object> row : nodes) {
+			RestNode node = (RestNode) row.get("n");
+			if (null != node) {
+				if (null == result)
+					result = new ArrayList<RestNode>();
+				
+				result.add(node);
+			}
+		}
+		
+		return result;
+	}
+	
 	
 	private RestNode createCrossRefPublication(final String key) {
 		if (key.contains(PART_DOI)) {
@@ -199,21 +580,20 @@ public class Compiler {
 				addProperty(props, PROPERTY_UPDATE_POLICY, item.getUpdatePolicy());
 				
 				if (!props.isEmpty()) {
-					RestNode node =  createNode(graphDb2, indexCrossrefPublication, PROPERTY_KEY, doi,
-							labelPublication, labelCrossRef, props); 
+					RestNode node =  createNode(graphDb2, Labels.CrossRef, Labels.Publication, PROPERTY_KEY, doi, props); 
 					
 					if (null != item.getAuthor())
 						for (Author author : item.getAuthor()) {
 							RestNode nodeAuthor = createCrossRefResearcher(doi, author);
 							
-							createUniqueRelationship(graphDb2, nodeAuthor, node, relAuthor, Direction.OUTGOING, null);
+							createUniqueRelationship(graphDb2, nodeAuthor, node, Relationhips.author, Direction.OUTGOING, null);
 						}
 					
 					if (null != item.getEditor())
 						for (Author editor : item.getEditor()) {
 							RestNode nodeAuthor = createCrossRefResearcher(doi, editor);
 							
-							createUniqueRelationship(graphDb2, nodeAuthor, node, relEditor, Direction.OUTGOING, null);
+							createUniqueRelationship(graphDb2, nodeAuthor, node, Relationhips.editor, Direction.OUTGOING, null);
 						}
 					
 					return node;
@@ -232,8 +612,7 @@ public class Compiler {
 		addProperty(props, PROPERTY_FULL_NAME, author.getFullName());
 		addProperty(props, PROPERTY_ORCID, author.getOrcid());
 		
-		return createNode(graphDb2, indexCrossrefResearcher, PROPERTY_KEY, doi + ":" + author.getFullName(), 
-				labelResearcher, labelCrossRef, props); 
+		return createNode(graphDb2, Labels.CrossRef, Labels.Researcher, PROPERTY_KEY, doi + ":" + author.getFullName(), props); 
 
 	}
 	
@@ -260,18 +639,19 @@ public class Compiler {
 		return pars;
 	}
 	
-	private RestNode createNode(RestAPI graphDb, RestIndex<Node> index, final String key, final Object value,
-			final Label labelType, final Label labelSorce, Map<String, Object> props) {
+	private RestNode createNode(RestAPI graphDb, final Label labelSource, final Label labelType, 
+			final String key, final Object value,  Map<String, Object> props) {
 				
 	//	System.out.println("Creating new node " +  labelSorce.name() + ":" + labelType.name() + " " + key + "=" + value + " " + props);
 		
 		props.put(key, value);
 		props.put(PROPERTY_NODE_TYPE, labelType.name());
-		props.put(PROPERTY_NODE_SOURCE, labelSorce.name());
+		props.put(PROPERTY_NODE_SOURCE, labelSource.name());
 		
-		RestNode node = graphDb.getOrCreateNode(index, key, value, props);
-		if (!node.hasLabel(labelSorce))
-			node.addLabel(labelSorce); 
+		RestNode node = graphDb.getOrCreateNode(getIndex(labelSource.name() + "_" + labelType.name()), key, value, props);
+		
+		if (!node.hasLabel(labelSource))
+			node.addLabel(labelSource); 
 		if (!node.hasLabel(labelType))
 			node.addLabel(labelType);
 		
@@ -303,6 +683,19 @@ public class Compiler {
 		else
 			graphDb.createRelationship(nodeStart, nodeEnd, type, data);
 	}	
+	
+	private RestIndex<Node> getIndex(String label) {
+		RestIndex<Node> index = mapIndexes.get(label);
+		if (null == index) 
+			mapIndexes.put(label, index = graphDb2.index().forNodes(label));
+		
+		
+		return index;
+	}
+	
+	private void createConstraint(Label labelSource, Label labelType) {
+		engine2.query("CREATE CONSTRAINT ON (n:" +  labelSource.name() + "_" + labelType.name() + ") ASSERT n." + PROPERTY_KEY + " IS UNIQUE", Collections.<String, Object> emptyMap());
+	}
 	
 	/*
 	private void createUniqueRelationship(RestNode nodeStart, RestNode nodeEnd, 

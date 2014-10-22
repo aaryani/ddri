@@ -9,7 +9,7 @@ import org.grants.harvesters.pmh.MetadataPrefix;
 public class App {
 	//private static final String REPO_URI = "http://researchdata.ands.org.au/registry/services/oai";
 	private static final String REPO_URI = "http://cds.cern.ch/oai2d.py/";
-	private static final String FOLDER_XML = "cern";
+	private static final String FOLDER_XML = "cern/xml";
 
 	public static void main(String[] args) {
 		
@@ -43,6 +43,7 @@ public class App {
 		
 		try {
 			harvester.harvest(MetadataPrefix.oai_dc);
+			harvester.harvest(MetadataPrefix.marcxml);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}

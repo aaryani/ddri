@@ -27,12 +27,12 @@ import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.RelationshipType;
-import org.neo4j.graphdb.index.IndexHits;
 import org.neo4j.rest.graphdb.RestAPI;
 import org.neo4j.rest.graphdb.RestAPIFacade;
 import org.neo4j.rest.graphdb.entity.RestNode;
 import org.neo4j.rest.graphdb.index.RestIndex;
 import org.neo4j.rest.graphdb.query.RestCypherQueryEngine;
+import org.neo4j.rest.graphdb.util.QueryResult;
 import org.openarchives.oai._2.HeaderType;
 import org.openarchives.oai._2.RecordType;
 import org.openarchives.oai._2.StatusType;
@@ -57,6 +57,7 @@ public class Importer {
 	public static final String PROPERTY_GENRE = "genre";
 	public static final String PROPERTY_NAME = "name";
 	public static final String PROPERTY_KEYWORDS = "keywords";
+	public static final String PROPERTY_N = "n";
 	
 	public static final String NODE_IDENTIFIER = "identifier";
 	public static final String NODE_TITLE_INFO = "titleInfo";
@@ -79,6 +80,8 @@ public class Importer {
 	
 	public static final String RELATION_RELATED_TO = "relatedTo";
 	
+	public static final String CYPHER_FIND_NODE_BY_DOI = "MATCH (n:Dryad:Record) WHERE has(n.doi) and any (m in n.doi WHERE m = {doi}) RETURN n";
+	
 	private final String folderUri;
 	
 	private RestAPI graphDb;
@@ -94,6 +97,7 @@ public class Importer {
 	private int deletedRecords = 0;
 	private int brokenRecords = 0;
 	private int createdRecords = 0;
+	private int createdRelationships = 0;
 	
 	private List<DoiRelation> relations = new ArrayList<DoiRelation>();
 	
@@ -117,6 +121,7 @@ public class Importer {
 		deletedRecords = 0;
 		brokenRecords = 0;
 		createdRecords = 0;
+		createdRelationships = 0;
 		
 		File[] folders = new File(folderUri).listFiles();
 		for (File folder : folders) 
@@ -131,16 +136,36 @@ public class Importer {
 		for (DoiRelation relation : relations) {
 			System.out.println("Relationship [" + relation.type + "]: " + relation.doi);
 			
-			IndexHits<Node> hits = indexDryadRecord.get(PROPERTY_DOI, relation.doi);
-			if (null != hits && hits.size() == 1) {
-				RestNode noteTo = (RestNode) hits.getSingle();
+			List<RestNode> hits = findNodeByDoi(relation.doi);
+			if (null != hits) {
 				RestNode nodeFrom = graphDb.getNodeById(relation.nodeId);
-				
-				createUniqueRelationship(nodeFrom, noteTo, DynamicRelationshipType.withName(relation.type), null);
+			
+				for (RestNode node : hits) 
+					createUniqueRelationship(nodeFrom, node, DynamicRelationshipType.withName(relation.type), null);
 			}
 		}
 		
-		System.out.println("Done. Detected " + createdRecords + " valid, " + deletedRecords + " deleted and " + brokenRecords + " broken records.");
+		System.out.println("Done. Detected " + createdRecords + " valid, " + deletedRecords + " deleted and " + brokenRecords + " broken records and " + createdRelationships + " relationships.");
+	}
+	
+	private List<RestNode> findNodeByDoi(final String doi) {
+		List<RestNode> result = null;
+		
+		Map<String, Object> pars = new HashMap<String, Object>();
+		pars.put(PROPERTY_DOI, doi);
+		
+		QueryResult<Map<String, Object>> nodes = engine.query(CYPHER_FIND_NODE_BY_DOI, pars);
+		for (Map<String, Object> row : nodes) {
+			RestNode node = (RestNode) row.get(PROPERTY_N);
+			if (null != node) {
+				if (null == result)
+					result = new ArrayList<RestNode>();
+				
+				result.add(node);
+			}
+		}
+		
+		return result;
 	}
 	
 	/*
@@ -205,20 +230,21 @@ public class Importer {
 	
 	@SuppressWarnings("unchecked")
 	private static void addData(Map<String, Object> map, String field, String data) {
-		if (null != field && null != data) {
+		if (null != field && null != data && !data.isEmpty()) {
 			Object par = map.get(field);
 			if (null == par) 
 				map.put(field, data);
 			else {
-				Set<String> pars;
 				if (par instanceof String) {
-					pars = new HashSet<String>();
+					if (((String)par).equals(data))
+						return; // we already have this string
+					
+					Set<String> pars = new HashSet<String>();
 					pars.add((String) par);
+					pars.add(data);
 					map.put(field, pars);
-				} else
-					pars = ((Set<String>)par);
-				
-				pars.add(data);
+				} else 
+					((Set<String>)par).add(data);
 			}
 		}
 	}
@@ -414,5 +440,7 @@ public class Importer {
 				return;
 		
 		graphDb.createRelationship(nodeStart, nodeEnd, type, data);
+		
+		++createdRelationships;
 	}	
 }

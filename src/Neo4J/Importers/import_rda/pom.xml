@@ -2,8 +2,8 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.grants.importers</groupId>
   <artifactId>import_rda</artifactId>
-  <version>1.0.1</version>
-  <name>RDA JSON importer</name>
+  <version>1.0.3</version>
+  <name>RDA XML Importer based on OAI-PMH RIF format </name>
   
   <properties>
     <jdk.version>1.7</jdk.version>
@@ -12,6 +12,7 @@
   
   <build>
 	<plugins>
+	  
 	  <plugin>
 		<groupId>org.apache.maven.plugins</groupId>
 		<artifactId>maven-compiler-plugin</artifactId>
@@ -30,7 +31,7 @@
 	      <archive>
 		    <manifest>
 		      <addClasspath>true</addClasspath>
-		      <mainClass>org.grants.importers.rda.App</mainClass>
+		      <mainClass>org.grants.importers.rif.rda.App</mainClass>
 		      <classpathPrefix>${class.path}</classpathPrefix>
 		    </manifest>
 	      </archive>
@@ -64,17 +65,11 @@
     </repository>
   </repositories>
 
-  <dependencies>
+   <dependencies>
     <dependency>
-      <groupId>org.neo4j</groupId>
-      <artifactId>neo4j-rest-graphdb</artifactId>
-      <version>2.0.2-SNAPSHOT</version>
-    </dependency>
-    <dependency>
-      <groupId>org.codehaus.jackson</groupId>
-      <artifactId>jackson-mapper-asl</artifactId>
-      <version>1.9.13</version>
+	  <groupId>org.grants.importers</groupId>
+	  <artifactId>import_rif</artifactId>
+	  <version>1.0.4</version>
     </dependency>
   </dependencies>
-  
 </project>

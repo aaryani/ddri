@@ -9,7 +9,7 @@ import org.grants.harvesters.pmh.MetadataPrefix;
 
 public class App {
 	private static final String REPO_URI = "http://researchdata.ands.org.au/registry/services/oai";
-	private static final String FOLDER_XML = "rda";
+	private static final String FOLDER_XML = "rda/xml/rif";
 
 	public static void main(String[] args) {
 		

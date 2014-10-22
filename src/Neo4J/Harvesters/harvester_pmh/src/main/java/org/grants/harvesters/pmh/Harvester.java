@@ -44,8 +44,10 @@ public class Harvester {
 
 	protected static final String ELEMENT_ROOT = "OAI-PMH";
 	
-	protected final String repoUrl;
-	protected final String folderXml;
+	protected String repoUrl;
+	
+	protected String folderBase;
+	protected String folderXml;
 
 	protected String indexName;
 	protected Map<String, Record> records;
@@ -60,11 +62,9 @@ public class Harvester {
 	private String granularity;
 	private String adminEmail;
 	
-	public Harvester( final String repoUrl, final String folderXml ) {
+	public Harvester( final String repoUrl, final String folderBase ) {
 		this.repoUrl = repoUrl;
-		this.folderXml = folderXml;
-		
-		new File(this.folderXml).mkdirs();
+		this.folderBase = folderBase;
 	}
 	
 	public String getRepositoryName() { return repositoryName; }
@@ -459,6 +459,10 @@ public class Harvester {
 	}
 	
 	public void harvest(MetadataPrefix prefix) throws Exception {
+		
+		folderXml = folderBase + "/" + prefix.name();
+		new File(folderXml).mkdirs();
+		
 		System.out.println("Initializing index...");
 		
 		System.out.println("Identifying...");
@@ -501,5 +505,21 @@ public class Harvester {
 		    	
 		    } while (nError > 0 || null != resumptionToken && !resumptionToken.isEmpty());		    
 		}
+	}
+	
+	public String getRepoUrl() {
+		return repoUrl;
+	}
+
+	public String getFolderBase() {
+		return folderBase;
+	}
+
+	public void setRepoUrl(String repoUrl) {
+		this.repoUrl = repoUrl;
+	}
+
+	public void setFolderBase(String folderBase) {
+		this.folderBase = folderBase;
 	}
 }

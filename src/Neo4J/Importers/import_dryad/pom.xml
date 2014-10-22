@@ -2,10 +2,10 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.grants.importers</groupId>
   <artifactId>import_dryad</artifactId>
-  <version>1.0.0</version>
+  <version>1.0.2</version>
   <name>Import Dryad (METS) xml files</name>
   
-   <properties>
+  <properties>
     <jdk.version>1.7</jdk.version>
     <class.path>jars/</class.path>
   </properties>
@@ -69,7 +69,7 @@
     <dependency>
 	  <groupId>org.grants.importers</groupId>
 	  <artifactId>import_mets</artifactId>
-	  <version>1.0.0</version>
+	  <version>1.0.2</version>
     </dependency>
   </dependencies>
   
