@@ -8,6 +8,8 @@ public class QueryResponse {
 	private QueryInfo queries;
 	private QueryContext context;
 	private SearchInformation searchInformation;
+	private Spelling spelling;
+	
 	private List<Item> items;
 	
 	public String getKind() {
@@ -58,6 +60,15 @@ public class QueryResponse {
 		this.items = items;
 	}
 	
+	public Spelling getSpelling() {
+		return spelling;
+	}
+
+	public void setSpelling(Spelling spelling) {
+		this.spelling = spelling;
+	}
+
+
 	@Override
 	public String toString() {
 		return "QueryResponse [kind=" + kind + 
@@ -65,9 +76,7 @@ public class QueryResponse {
 				", queries=" + queries +
 				", context=" + context + 
 				", searchInformation=" + searchInformation +
+				", spelling=" + spelling +
 				", items=" + items + "]";
-	}
-
-
-	
+	}	
 }

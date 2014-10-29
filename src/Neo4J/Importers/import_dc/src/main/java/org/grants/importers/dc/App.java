@@ -94,7 +94,7 @@ public class App {
 		// TODO Auto-generated method stub
 
 		// connect to graph database
-		RestAPI graphDb = new RestAPIFacade("http://localhost:7474/db/data/");  
+		RestAPI graphDb = new RestAPIFacade("http://localhost:7476/db/data/");  
 		RestCypherQueryEngine engine=new RestCypherQueryEngine(graphDb);  
 		
 		engine.query("CREATE CONSTRAINT ON (n:Cern_Publication) ASSERT n.doi IS UNIQUE", Collections.<String, Object> emptyMap());
@@ -104,7 +104,7 @@ public class App {
 			JAXBContext jc = JAXBContext.newInstance( "org.openarchives.oai._2:org.purl.dc.elements._1" );
 			Unmarshaller u = jc.createUnmarshaller();
 			
-			File[] folders = new File("cern").listFiles();
+			File[] folders = new File("cern/xml/oai_dc").listFiles();
 			for (File folder : folders)
 				if (folder.isDirectory() && !folder.getName().equals("_cache")) {
 					File[] files = folder.listFiles();
@@ -119,7 +119,7 @@ public class App {
 								if (header.getStatus() != StatusType.DELETED) {
 									
 									String idetifier = header.getIdentifier();
-									System.out.println("idetifier");
+									System.out.println("idetifier: " + idetifier);
 	//								System.out.println(idetifier.toString());
 								//	String datestamp = header.getDatestamp();
 		//							System.out.println(datestamp.toString());
@@ -127,39 +127,40 @@ public class App {
 									
 									if (null != idetifier && !idetifier.isEmpty() && null != record.getMetadata()) {
 										Element metadata = (Element) record.getMetadata().getAny();
-										Map<String, Object> map = new HashMap<String, Object>();
+										if (null != metadata) {
+											Map<String, Object> map = new HashMap<String, Object>();
+											
+											for(org.w3c.dom.Node child = metadata.getFirstChild(); child != null; child = child.getNextSibling())
+										        if(child instanceof Element) {
+										        	String tag = ((Element) child).getLocalName();
+										        	if (tag.equals("identifier")) {
+										        		if (child.getTextContent().contains("cds.cern.ch"))
+										        			addData(map, "cern_url", child.getTextContent());
+										        	} else if (tag.equals("language")) {
+										        		addData(map, "language", child.getTextContent());
+										        	} else if (tag.equals("title")) {
+										        		addData(map, "title", child.getTextContent());
+										        	} else if (tag.equals("subject")) {
+										        		addData(map, "subject", child.getTextContent());
+										        	} else if (tag.equals("publisher")) {
+										        		addData(map, "publisher", child.getTextContent());
+										        	} else if (tag.equals("date")) {
+										        		addData(map, "date", child.getTextContent());
+										        	}
+										        }
 										
-										for(org.w3c.dom.Node child = metadata.getFirstChild(); child != null; child = child.getNextSibling())
-									        if(child instanceof Element) {
-									        	String tag = ((Element) child).getLocalName();
-									        	if (tag.equals("identifier")) {
-									        		if (child.getTextContent().contains("cds.cern.ch"))
-									        			addData(map, "cern_url", child.getTextContent());
-									        	} else if (tag.equals("language")) {
-									        		addData(map, "language", child.getTextContent());
-									        	} else if (tag.equals("title")) {
-									        		addData(map, "title", child.getTextContent());
-									        	} else if (tag.equals("subject")) {
-									        		addData(map, "subject", child.getTextContent());
-									        	} else if (tag.equals("publisher")) {
-									        		addData(map, "publisher", child.getTextContent());
-									        	} else if (tag.equals("date")) {
-									        		addData(map, "date", child.getTextContent());
-									        	}
-									        }
-										
-										map.put("doi", idetifier);
-										map.put("node_source", "Cern");
-										map.put("node_type", "Publication");
-										
-										System.out.println("Create node");
-										
-										RestNode node = graphDb.getOrCreateNode(index, "doi", idetifier, map);
-										if (!node.hasLabel(Labels.Publication))
-											node.addLabel(Labels.Publication); 
-										if (!node.hasLabel(Labels.Cern))
-											node.addLabel(Labels.Cern);
-										
+											map.put("doi", idetifier);
+											map.put("node_source", "Cern");
+											map.put("node_type", "Publication");
+											
+										//	System.out.println("Create node");
+											
+											RestNode node = graphDb.getOrCreateNode(index, "doi", idetifier, map);
+											if (!node.hasLabel(Labels.Publication))
+												node.addLabel(Labels.Publication); 
+											if (!node.hasLabel(Labels.Cern))
+												node.addLabel(Labels.Cern);
+										}											
 									}
 								}
 							

@@ -5,11 +5,13 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
+import java.net.URL;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.util.ArrayList;
@@ -17,6 +19,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBException;
+import javax.xml.bind.Marshaller;
+import javax.xml.bind.Unmarshaller;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -32,6 +38,7 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
 public class Harvester {
@@ -62,9 +69,20 @@ public class Harvester {
 	private String granularity;
 	private String adminEmail;
 	
-	public Harvester( final String repoUrl, final String folderBase ) {
+	private JAXBContext jaxbContext;
+	private Marshaller jaxbMarshaller;
+	private Unmarshaller jaxbUnmarshaller;
+	
+	public Harvester( final String repoUrl, final String folderBase ) throws JAXBException {
 		this.repoUrl = repoUrl;
 		this.folderBase = folderBase;
+		
+
+		jaxbContext = JAXBContext.newInstance(Status.class);
+		jaxbMarshaller = jaxbContext.createMarshaller();
+		jaxbMarshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
+		jaxbUnmarshaller = jaxbContext.createUnmarshaller();
+	
 	}
 	
 	public String getRepositoryName() { return repositoryName; }
@@ -79,10 +97,15 @@ public class Harvester {
 	    dbf.setExpandEntityReferences(false);
 	    dbf.setXIncludeAware(true);
 	    
+	    
 	  //  dbf.setValidating(dtdValidate || xsdValidate);
 		
+	    InputStream is = new URL(uri).openStream();
+	    InputSource xml = new InputSource(is);
+	    xml.setEncoding("ISO-8859-1");
+	    
 		DocumentBuilder db = dbf.newDocumentBuilder(); 
-		Document doc = db.parse(uri);
+		Document doc = db.parse(xml);
 		
 		return doc;
 	}
@@ -208,13 +231,10 @@ public class Harvester {
 		try {
 			return MetadataFormat.getMetadataFormats(GetXml(url));
 		} catch (ParserConfigurationException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (SAXException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} 
 		
@@ -463,15 +483,15 @@ public class Harvester {
 		folderXml = folderBase + "/" + prefix.name();
 		new File(folderXml).mkdirs();
 		
-		System.out.println("Initializing index...");
-		
+		File fileStatus = new File(folderXml + "/status.xml");
+		Status status = loadStatus(fileStatus);
 		System.out.println("Identifying...");
 	
 		if (!identify())
 			throw new Exception("Unable to Identify the service");
 	
 		System.out.println("Downloading sets list...");
-			
+		
 		Map<String, String> mapSets = listSets();
 		if (null == mapSets )
 			throw new Exception("The sets collection is empty");
@@ -479,15 +499,33 @@ public class Harvester {
 			// try to load whole database into memory
 		for (Map.Entry<String, String> entry : mapSets.entrySet()) {
 		    String set = entry.getKey();
+		    if (status.getProcessedSets().contains(set))
+		    	continue;
+		    
+		    String resumptionToken = null;
+		    
+		    if (null != status.getCurrentSet() && status.getCurrentSet().equals(set))
+		    	resumptionToken = status.getResumptionToken();
+		    else {
+		    	status.setCurrentSet(set);
+		    	status.setResumptionToken(null);
+		    
+		   // 	saveStatus(status, fileStatus);
+		    }
+		    
 		    String setName = entry.getValue();
 		    
 		    System.out.println("Processing set: " +  URLDecoder.decode(setName, "UTF-8"));
 		    
-		    String resumptionToken = null;
 		    int nError = 0;
 		    do {
 		    	try {
 		    		resumptionToken = downloadRecords(set, prefix, resumptionToken);		
+		    		
+		    		if (null != resumptionToken && !resumptionToken.isEmpty()) {
+		    			status.setResumptionToken(resumptionToken);
+		    			saveStatus(status, fileStatus);
+		    		}
 		    		
 		    		nError = 0;		    		
 		    	}
@@ -503,8 +541,16 @@ public class Harvester {
 		    		}
 		    	}
 		    	
-		    } while (nError > 0 || null != resumptionToken && !resumptionToken.isEmpty());		    
+		    } while (nError > 0 || null != resumptionToken && !resumptionToken.isEmpty());		 
+		    
+		    status.addProcessedSet(set);
+		    status.setCurrentSet(null);
+		    status.setResumptionToken(null);
+		    saveStatus(status, fileStatus);
 		}
+		
+		if (fileStatus.exists())
+			fileStatus.delete();
 	}
 	
 	public String getRepoUrl() {
@@ -522,4 +568,23 @@ public class Harvester {
 	public void setFolderBase(String folderBase) {
 		this.folderBase = folderBase;
 	}
+	
+	protected Status loadStatus(File file) {
+		try {
+			if (file.exists() && !file.isDirectory())
+				return (Status) jaxbUnmarshaller.unmarshal(file);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return new Status();
+	}
+	
+	protected void saveStatus(Status status, File file) {
+		try {
+			jaxbMarshaller.marshal(status, file);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}	
 }

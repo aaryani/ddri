@@ -3,6 +3,7 @@ package org.grants.importers.institutions;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.util.Collections;
@@ -29,6 +30,7 @@ public class Importer {
 	private static final String PROPERTY_KEY = "key"; 
 	private static final String PROPERTY_NODE_SOURCE = "node_source";
 	private static final String PROPERTY_NODE_TYPE = "node_type";
+	private static final String PROPERTY_COUNTRY = "country";
 	private static final String PROPERTY_STATE = "state";
 	private static final String PROPERTY_TITLE = "title";
 	private static final String PROPERTY_URL = "url";
@@ -66,40 +68,51 @@ public class Importer {
 					header = true;
 					continue;
 				}
-				if (grant.length != 3)
+				if (grant.length != 4)
 					continue;
 				
-				String state = grant[0];
-				String title = grant[1];
-				String url = grant[2];
+				String country = grant[0];
+				String state = grant[1];
+				String title = grant[2];
+				String url = grant[3];
 				
 				System.out.println(title + " - " + url);
 		
-				String host = url;
-				if (host.startsWith("https://"))
-					host = host.substring(8);
-				if (host.startsWith("http://"))
-					host = host.substring(7);
-				if (host.startsWith("www."))
-					host = host.substring(4);
+				if (null != url && !url.isEmpty()) {
 				
-				if (host.endsWith("/"))
-					host = host.substring(0, host.length() -1 );
-				
-				Map<String, Object> map = new HashMap<String, Object>();
-				map.put(PROPERTY_KEY, url);
-				map.put(PROPERTY_NODE_SOURCE, LABEL_WEB);
-				map.put(PROPERTY_NODE_TYPE, LABEL_INSTITUTION);
-				map.put(PROPERTY_STATE, state);
-				map.put(PROPERTY_TITLE, title);
-				map.put(PROPERTY_URL, url);
-				map.put(PROPERTY_HOST, host);
-				
-				RestNode node = graphDb.getOrCreateNode(indexWebInstitution, PROPERTY_KEY, url, map);
-				if (!node.hasLabel(labelInstitution))
-					node.addLabel(labelInstitution); 
-				if (!node.hasLabel(labelWeb))
-					node.addLabel(labelWeb);
+					URL hostUrl = null;
+					
+					try {
+						hostUrl = new URL(url);
+					} catch(MalformedURLException ex) {
+						hostUrl = new URL("http://" + url);
+					}
+					
+					String host = hostUrl.getHost();
+					if (host.startsWith("www."))
+						host = host.substring(4);
+					else if (host.startsWith("www3."))
+						host = host.substring(5);
+					else if (host.startsWith("web."))
+						host = host.substring(4);
+					
+					Map<String, Object> map = new HashMap<String, Object>();
+					map.put(PROPERTY_KEY, url);
+					map.put(PROPERTY_NODE_SOURCE, LABEL_WEB);
+					map.put(PROPERTY_NODE_TYPE, LABEL_INSTITUTION);
+					if (null != state && !state.isEmpty())
+						map.put(PROPERTY_STATE, state);
+					map.put(PROPERTY_COUNTRY, country);
+					map.put(PROPERTY_TITLE, title);
+					map.put(PROPERTY_URL, url);
+					map.put(PROPERTY_HOST, host);
+					
+					RestNode node = graphDb.getOrCreateNode(indexWebInstitution, PROPERTY_KEY, url, map);
+					if (!node.hasLabel(labelInstitution))
+						node.addLabel(labelInstitution); 
+					if (!node.hasLabel(labelWeb))
+						node.addLabel(labelWeb);
+				}
 			}
 			
 			reader.close();

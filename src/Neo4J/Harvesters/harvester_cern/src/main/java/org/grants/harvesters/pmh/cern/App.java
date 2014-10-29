@@ -2,6 +2,8 @@ package org.grants.harvesters.pmh.cern;
 
 import java.util.List;
 
+import javax.xml.bind.JAXBException;
+
 import org.grants.harvesters.pmh.Harvester;
 import org.grants.harvesters.pmh.MetadataFormat;
 import org.grants.harvesters.pmh.MetadataPrefix;
@@ -33,19 +35,24 @@ public class App {
 			return;
 		}
 		
-		Harvester harvester = new Harvester(repoUri, folderXml);
-		
-		List<MetadataFormat> formats = harvester.listMetadataFormats();
-		System.out.println("Supported metadata formats:");
-		for (MetadataFormat format : formats) {
-			System.out.println(format.toString());
-		}
-		
 		try {
-			harvester.harvest(MetadataPrefix.oai_dc);
-			harvester.harvest(MetadataPrefix.marcxml);
-		} catch (Exception e) {
-			e.printStackTrace();
+			Harvester harvester = new Harvester(repoUri, folderXml);
+			
+			List<MetadataFormat> formats = harvester.listMetadataFormats();
+			System.out.println("Supported metadata formats:");
+			for (MetadataFormat format : formats) {
+				System.out.println(format.toString());
+			}
+			
+			try {
+			//	harvester.harvest(MetadataPrefix.oai_dc);
+				harvester.harvest(MetadataPrefix.marcxml);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		} catch (JAXBException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
 		}
 	}
 }
